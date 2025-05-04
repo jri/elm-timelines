@@ -1,9 +1,11 @@
 module Main exposing (..)
 
 import Browser
+import Browser.Events as E
 import Html exposing (Html, h1, button, div, span, text)
-import Html.Attributes exposing (style)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (class, style)
+import Json.Decode as D
+import Debug exposing (log)
 
 
 
@@ -11,18 +13,22 @@ import Html.Events exposing (onClick)
 
 
 main =
-  Browser.sandbox { init = init, update = update, view = view }
+  Browser.element
+    { init = init
+    , update = update
+    , subscriptions = subscriptions
+    , view = view
+    }
 
 
 
 -- MODEL
 
 
-type alias Model = TimeBoard
-
-type alias TimeBoard =
+type alias Model =
   { title : String
   , timelines : List Timeline
+  , dragState : DragState
   }
 
 type alias Timeline = 
@@ -37,11 +43,23 @@ type alias Timespan =
   , end : Int
   }
 
+type alias Point =
+  { x : Int
+  , y : Int
+  }
+
 type alias Color = Int
 
-init : Model
-init =
-  TimeBoard "Terry's life"
+type alias Id = Int
+
+type DragState
+  = None
+  | Moving Id Point
+
+init : () -> (Model, Cmd Msg)
+init _ =
+  ( Model
+    "Terry's life"
     [ Timeline "Living places" 120 -- green
       [ Timespan "Park Avenue" 200 350
       , Timespan "Lake Street" 400 700
@@ -52,6 +70,9 @@ init =
       , Timespan "Marina" 500 600
       ]
     ]
+    None
+    , Cmd.none
+  )
 
 
 
@@ -59,10 +80,61 @@ init =
 
 
 type Msg
-  = None
+  = MouseDown Int Int String
+  | MouseMove Int Int
+  | MouseUp
 
-update : Msg -> Model -> Model
-update msg model = model
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+  let
+    _ = log "UPDATE" msg
+  in
+  case msg of
+    MouseDown x y class ->
+      ( { model | dragState = if class == "tl-timespan" then Moving 0 (Point x y) else None }
+      , Cmd.none
+      )
+    MouseMove x y ->
+      ( let
+          d = x - startX model.dragState
+        in
+        model -- { model | timelines[0].entries[0].begin = timespan.begin + d } -- TODO
+      , Cmd.none
+      )
+    MouseUp ->
+      ( { model | dragState = None }
+      , Cmd.none
+      )
+
+startX : DragState -> Int
+startX dragState =
+  case dragState of
+    Moving id point -> point.x
+    None -> log "### CORRUPTION: handling MouseMove message while not in MOVING state" 0
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  let
+    _ = log "SUBSCRIPTIONS" 0
+  in
+  case model.dragState of
+    None ->
+      E.onMouseDown <| D.map3 MouseDown
+        ( D.field "offsetX" D.int )
+        ( D.field "offsetY" D.int )
+        ( D.at ["target", "className"] D.string )
+    Moving _ _ ->
+      Sub.batch
+        [ E.onMouseMove <| D.map2 MouseMove
+          ( D.field "offsetX" D.int )
+          ( D.field "offsetY" D.int )
+        , E.onMouseUp (D.succeed MouseUp)
+        ]
 
 
 
@@ -103,7 +175,8 @@ viewTimeline timeline =
 viewTimespan : Timespan -> Color -> Html Msg
 viewTimespan timespan color =
   div
-    [ style "position" "absolute"
+    [ class "tl-timespan"
+    , style "position" "absolute"
     , style "top" "0"
     , style "left" <| String.fromInt timespan.begin ++ "px"
     , style "width" <| String.fromInt ( timespan.end - timespan.begin ) ++ "px"
@@ -112,7 +185,7 @@ viewTimespan timespan color =
     , style "box-sizing" "border-box"
     , style "background-color" (hsl color "90%")
     ]
-    [ span [] [ text timespan.title ]]
+    [ text timespan.title ]
 
 hsl : Int -> String -> String
 hsl hue lightness =
