@@ -3,7 +3,7 @@ module Main exposing (..)
 import Browser
 import Browser.Events as E
 import Html exposing (Html, h1, button, div, span, text)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (class, attribute, style)
 import Dict exposing (Dict)
 import Json.Decode as D
 import Debug exposing (log)
@@ -29,7 +29,7 @@ main =
 type alias Model =
   { title : String
   , timelines : List Timeline
-  , timespans: Dict Int Timespan
+  , timespans: Timespans
   , dragState : DragState
   }
 
@@ -38,6 +38,8 @@ type alias Timeline =
   , color : Color
   , tsIds : List Int
   }
+
+type alias Timespans = Dict Int Timespan
 
 type alias Timespan =
   { id : Int
@@ -56,8 +58,8 @@ type alias Color = Int
 type alias Id = Int
 
 type DragState
-  = None
-  | Moving Id Point
+  = Moving Id Point -- object Id, last point
+  | None
 
 init : () -> (Model, Cmd Msg)
 init _ =
@@ -84,25 +86,33 @@ init _ =
 
 
 type Msg
-  = MouseDown Int Int String
+  = MouseDown Int Int String String -- x y class id
   | MouseMove Int Int
   | MouseUp
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+  {--
   let
     _ = log "UPDATE" msg
   in
+  --}
   case msg of
-    MouseDown x y class ->
-      ( { model | dragState = if class == "tl-timespan" then Moving 0 (Point x y) else None }
+    MouseDown x y class idStr ->
+      ( { model
+          | dragState = updateDragState class idStr x y
+        }
       , Cmd.none
       )
     MouseMove x y ->
       ( let
-          d = x - startX model.dragState
+          tsId = dragId model
+          delta = x - lastX model
         in
-        model -- { model | timelines.entries = timespan.begin + d } -- TODO
+        { model
+          | timespans = updateTimespan model tsId delta
+          , dragState = Moving tsId <| Point x y
+        }
       , Cmd.none
       )
     MouseUp ->
@@ -110,10 +120,39 @@ update msg model =
       , Cmd.none
       )
 
-startX : DragState -> Int
-startX dragState =
-  case dragState of
-    Moving id point -> point.x
+updateDragState : String -> String -> Int -> Int -> DragState
+updateDragState class idStr x y =
+  if class == "tl-timespan" then
+    case String.toInt idStr of
+      Just id -> Moving id (Point x y)
+      Nothing -> illegalTimespanIdStr idStr None
+  else
+    None
+
+updateTimespan : Model -> Id -> Int -> Timespans
+updateTimespan model id delta =
+  Dict.update
+    id
+    (\ts -> case ts of
+      Just timespan -> Just
+        { timespan
+          | begin = timespan.begin + delta
+          , end = timespan.end + delta
+        }
+      Nothing -> illegalTimespanId id Nothing
+    )
+    model.timespans
+
+dragId : Model -> Id
+dragId model =
+  case model.dragState of
+    Moving id _ -> id
+    None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
+
+lastX : Model -> Int
+lastX model =
+  case model.dragState of
+    Moving _ point -> point.x
     None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
 
 
@@ -123,20 +162,18 @@ startX dragState =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  let
-    _ = log "SUBSCRIPTIONS" 0
-  in
   case model.dragState of
     None ->
-      E.onMouseDown <| D.map3 MouseDown
-        ( D.field "offsetX" D.int )
-        ( D.field "offsetY" D.int )
+      E.onMouseDown <| D.map4 MouseDown
+        ( D.field "clientX" D.int )
+        ( D.field "clientY" D.int )
         ( D.at ["target", "className"] D.string )
+        ( D.at ["target", "dataset", "id"] D.string )
     Moving _ _ ->
       Sub.batch
         [ E.onMouseMove <| D.map2 MouseMove
-          ( D.field "offsetX" D.int )
-          ( D.field "offsetY" D.int )
+          ( D.field "clientX" D.int )
+          ( D.field "clientY" D.int )
         , E.onMouseUp (D.succeed MouseUp)
         ]
 
@@ -175,12 +212,9 @@ viewTimeline timeline model =
       ]
       ( List.map
         ( \tsId ->
-          let
-            ts = Dict.get tsId model.timespans
-          in
-          case ts of
+          case Dict.get tsId model.timespans of
             Just timespan -> viewTimespan timespan timeline.color
-            Nothing -> illegalTimespanId tsId
+            Nothing -> illegalTimespanId tsId text ""
         )
         timeline.tsIds
       )
@@ -190,6 +224,7 @@ viewTimespan : Timespan -> Color -> Html Msg
 viewTimespan timespan color =
   div
     [ class "tl-timespan"
+    , attribute "data-id" <| String.fromInt timespan.id
     , style "position" "absolute"
     , style "top" "0"
     , style "left" <| String.fromInt timespan.begin ++ "px"
@@ -201,9 +236,13 @@ viewTimespan timespan color =
     ]
     [ text timespan.title ]
 
-illegalTimespanId : Int -> Html Msg
-illegalTimespanId tsId =
-  log ("### ERROR: " ++ String.fromInt tsId ++ " is an illegal Timespan ID") text ""
+illegalTimespanId : Int -> a -> a
+illegalTimespanId tsId val =
+  log ("### ERROR: " ++ String.fromInt tsId ++ " is an illegal Timespan ID") val
+
+illegalTimespanIdStr : String -> a -> a
+illegalTimespanIdStr tsIdStr val =
+  log ("### ERROR: " ++ tsIdStr ++ " is an illegal Timespan ID string") val
 
 hsl : Int -> String -> String
 hsl hue lightness =
