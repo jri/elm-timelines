@@ -48,18 +48,23 @@ type alias Timespan =
   , end : Int
   }
 
+type DragState
+  = Moving Id MoveMode Point -- timespan Id, mode, last point
+  | None
+
+type MoveMode -- operation the drag represents
+  = Move
+  | ResizeLeft
+  | ResizeRight
+
 type alias Point =
   { x : Int
   , y : Int
   }
 
-type alias Color = Int
+type alias Color = Int -- hue
 
 type alias Id = Int
-
-type DragState
-  = Moving Id Point -- object Id, last point
-  | None
 
 init : () -> (Model, Cmd Msg)
 init _ =
@@ -99,19 +104,18 @@ update msg model =
   --}
   case msg of
     MouseDown x y class idStr ->
-      ( { model
-          | dragState = updateDragState class idStr x y
-        }
+      ( { model | dragState = updateDragState class idStr x y }
       , Cmd.none
       )
     MouseMove x y ->
       ( let
           tsId = dragId model
+          mode = moveMode model
           delta = x - lastX model
         in
         { model
-          | timespans = updateTimespan model tsId delta
-          , dragState = Moving tsId <| Point x y
+          | timespans = updateTimespan model tsId delta mode
+          , dragState = Moving tsId mode (Point x y)
         }
       , Cmd.none
       )
@@ -122,23 +126,35 @@ update msg model =
 
 updateDragState : String -> String -> Int -> Int -> DragState
 updateDragState class idStr x y =
-  if class == "tl-timespan" then
-    case String.toInt idStr of
-      Just id -> Moving id (Point x y)
-      Nothing -> illegalTimespanIdStr idStr None
-  else
-    None
+  case String.toInt idStr of
+    Just id ->
+      Moving
+        id
+        ( case class of
+            "tl-timespan" -> Move
+            "tl-resizer-left" -> ResizeLeft
+            "tl-resizer-right" -> ResizeRight
+            _ -> Move -- TODO: error handling
+        )
+        ( Point x y )
+    Nothing -> illegalTimespanIdStr idStr None
 
-updateTimespan : Model -> Id -> Int -> Timespans
-updateTimespan model id delta =
+updateTimespan : Model -> Id -> Int -> MoveMode -> Timespans
+updateTimespan model id delta mode =
   Dict.update
     id
     (\ts -> case ts of
-      Just timespan -> Just
-        { timespan
-          | begin = timespan.begin + delta
-          , end = timespan.end + delta
-        }
+      Just timespan -> Just <|
+        case mode of
+          Move ->
+            { timespan
+              | begin = timespan.begin + delta
+              , end = timespan.end + delta
+            }
+          ResizeLeft ->
+            { timespan | begin = timespan.begin + delta }
+          ResizeRight ->
+            { timespan | end = timespan.end + delta }
       Nothing -> illegalTimespanId id Nothing
     )
     model.timespans
@@ -146,13 +162,19 @@ updateTimespan model id delta =
 dragId : Model -> Id
 dragId model =
   case model.dragState of
-    Moving id _ -> id
+    Moving id _ _ -> id
     None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
+
+moveMode : Model -> MoveMode
+moveMode model =
+  case model.dragState of
+    Moving _ mode _ -> mode
+    None -> log "### ERROR: handling MouseMove message while not in MOVING state" Move
 
 lastX : Model -> Int
 lastX model =
   case model.dragState of
-    Moving _ point -> point.x
+    Moving _ _ point -> point.x
     None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
 
 
@@ -169,7 +191,7 @@ subscriptions model =
         ( D.field "clientY" D.int )
         ( D.at ["target", "className"] D.string )
         ( D.at ["target", "dataset", "id"] D.string )
-    Moving _ _ ->
+    Moving _ _ _ ->
       Sub.batch
         [ E.onMouseMove <| D.map2 MouseMove
           ( D.field "clientX" D.int )
@@ -224,17 +246,40 @@ viewTimespan : Timespan -> Color -> Html Msg
 viewTimespan timespan color =
   div
     [ class "tl-timespan"
-    , attribute "data-id" <| String.fromInt timespan.id
+    , attribute "data-id" (String.fromInt timespan.id)
     , style "position" "absolute"
     , style "top" "0"
-    , style "left" <| String.fromInt timespan.begin ++ "px"
-    , style "width" <| String.fromInt (timespan.end - timespan.begin) ++ "px"
+    , style "left" (String.fromInt timespan.begin ++ "px")
+    , style "width" (String.fromInt (timespan.end - timespan.begin) ++ "px")
     , style "height" "100%"
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     , style "background-color" (hsl color "90%")
     ]
-    [ text timespan.title ]
+    [ text timespan.title
+    , viewResizer timespan.id "left"
+    , viewResizer timespan.id "right"
+    ]
+
+viewResizer : Id -> String -> Html Msg
+viewResizer id pos =
+  div
+    [ class ("tl-resizer-" ++ pos)
+    , attribute "data-id" (String.fromInt id)
+    , style "position" "absolute"
+    , style "top" "0"
+    , style pos "-5px"
+    , style "width" "10px"
+    , style "height" "100%"
+    , style "cursor" "col-resize"
+    -- , style "background-color" "hsl(0, 0%, 50%)" -- for debugging
+    -- , style "opacity" "0.2"
+    ]
+    []
+
+hsl : Int -> String -> String
+hsl hue lightness =
+  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
 illegalTimespanId : Int -> a -> a
 illegalTimespanId tsId val =
@@ -243,7 +288,3 @@ illegalTimespanId tsId val =
 illegalTimespanIdStr : String -> a -> a
 illegalTimespanIdStr tsIdStr val =
   log ("### ERROR: " ++ tsIdStr ++ " is an illegal Timespan ID string") val
-
-hsl : Int -> String -> String
-hsl hue lightness =
-  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
