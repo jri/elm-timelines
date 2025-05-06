@@ -91,7 +91,7 @@ init _ =
 
 
 type Msg
-  = MouseDown Int Int String String -- x y class id
+  = MouseDown Int Int String Int -- x y class id
   | MouseMove Int Int
   | MouseUp
 
@@ -103,8 +103,8 @@ update msg model =
   in
   --}
   case msg of
-    MouseDown x y class idStr ->
-      ( { model | dragState = updateDragState class idStr x y }
+    MouseDown x y class id ->
+      ( { model | dragState = updateDragState class id x y }
       , Cmd.none
       )
     MouseMove x y ->
@@ -124,20 +124,17 @@ update msg model =
       , Cmd.none
       )
 
-updateDragState : String -> String -> Int -> Int -> DragState
-updateDragState class idStr x y =
-  case String.toInt idStr of
-    Just id ->
-      Moving
-        id
-        ( case class of
-            "tl-timespan" -> Move
-            "tl-resizer-left" -> ResizeLeft
-            "tl-resizer-right" -> ResizeRight
-            _ -> Move -- TODO: error handling
-        )
-        ( Point x y )
-    Nothing -> illegalTimespanIdStr idStr None
+updateDragState : String -> Int -> Int -> Int -> DragState
+updateDragState class id x y =
+  Moving
+    id
+    ( case class of
+        "tl-timespan" -> Move
+        "tl-resizer-left" -> ResizeLeft
+        "tl-resizer-right" -> ResizeRight
+        _ -> Move -- TODO: error handling
+    )
+    ( Point x y )
 
 updateTimespan : Model -> Id -> Int -> MoveMode -> Timespans
 updateTimespan model id delta mode =
@@ -184,13 +181,20 @@ lastX model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+  let
+    toInt : String -> D.Decoder Int
+    toInt str =
+      case String.toInt str of
+        Just int -> D.succeed int
+        Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
+  in
   case model.dragState of
     None ->
       E.onMouseDown <| D.map4 MouseDown
         ( D.field "clientX" D.int )
         ( D.field "clientY" D.int )
         ( D.at ["target", "className"] D.string )
-        ( D.at ["target", "dataset", "id"] D.string )
+        ( D.at ["target", "dataset", "id"] D.string |> D.andThen toInt )
     Moving _ _ _ ->
       Sub.batch
         [ E.onMouseMove <| D.map2 MouseMove
@@ -284,7 +288,3 @@ hsl hue lightness =
 illegalTimespanId : Int -> a -> a
 illegalTimespanId tsId val =
   log ("### ERROR: " ++ String.fromInt tsId ++ " is an illegal Timespan ID") val
-
-illegalTimespanIdStr : String -> a -> a
-illegalTimespanIdStr tsIdStr val =
-  log ("### ERROR: " ++ tsIdStr ++ " is an illegal Timespan ID string") val
