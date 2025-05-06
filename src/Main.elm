@@ -49,13 +49,18 @@ type alias Timespan =
   }
 
 type DragState
-  = Moving Id MoveMode Point -- timespan Id, mode, last point
+  = DragTimespan Id TimespanMode Point -- timespan Id, mode, last point
   | None
 
-type MoveMode -- operation the drag represents
-  = Move
-  | ResizeLeft
-  | ResizeRight
+type TimespanMode
+  = MoveTimespan
+  | MoveBegin
+  | MoveEnd
+
+type Msg
+  = MouseDown Int Int String Int -- x y class id
+  | MouseMove Int Int
+  | MouseUp
 
 type alias Point =
   { x : Int
@@ -90,11 +95,6 @@ init _ =
 -- UPDATE
 
 
-type Msg
-  = MouseDown Int Int String Int -- x y class id
-  | MouseMove Int Int
-  | MouseUp
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   {--
@@ -109,13 +109,13 @@ update msg model =
       )
     MouseMove x y ->
       ( let
-          tsId = dragId model
-          mode = moveMode model
+          tsId = timespanId model
+          mode = timespanMode model
           delta = x - lastX model
         in
         { model
           | timespans = updateTimespan model tsId delta mode
-          , dragState = Moving tsId mode (Point x y)
+          , dragState = DragTimespan tsId mode (Point x y)
         }
       , Cmd.none
       )
@@ -126,52 +126,52 @@ update msg model =
 
 updateDragState : String -> Int -> Int -> Int -> DragState
 updateDragState class id x y =
-  Moving
+  DragTimespan
     id
     ( case class of
-        "tl-timespan" -> Move
-        "tl-resizer-left" -> ResizeLeft
-        "tl-resizer-right" -> ResizeRight
-        _ -> Move -- TODO: error handling
+        "tl-timespan" -> MoveTimespan
+        "tl-resizer-left" -> MoveBegin
+        "tl-resizer-right" -> MoveEnd
+        _ -> MoveTimespan -- TODO: error handling
     )
     ( Point x y )
 
-updateTimespan : Model -> Id -> Int -> MoveMode -> Timespans
+updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
   Dict.update
     id
     (\ts -> case ts of
       Just timespan -> Just <|
         case mode of
-          Move ->
+          MoveTimespan ->
             { timespan
               | begin = timespan.begin + delta
               , end = timespan.end + delta
             }
-          ResizeLeft ->
+          MoveBegin ->
             { timespan | begin = timespan.begin + delta }
-          ResizeRight ->
+          MoveEnd ->
             { timespan | end = timespan.end + delta }
       Nothing -> illegalTimespanId id Nothing
     )
     model.timespans
 
-dragId : Model -> Id
-dragId model =
+timespanId : Model -> Id
+timespanId model =
   case model.dragState of
-    Moving id _ _ -> id
+    DragTimespan id _ _ -> id
     None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
 
-moveMode : Model -> MoveMode
-moveMode model =
+timespanMode : Model -> TimespanMode
+timespanMode model =
   case model.dragState of
-    Moving _ mode _ -> mode
-    None -> log "### ERROR: handling MouseMove message while not in MOVING state" Move
+    DragTimespan _ mode _ -> mode
+    None -> log "### ERROR: handling MouseMove message while not in MOVING state" MoveTimespan
 
 lastX : Model -> Int
 lastX model =
   case model.dragState of
-    Moving _ _ point -> point.x
+    DragTimespan _ _ point -> point.x
     None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
 
 
@@ -195,7 +195,7 @@ subscriptions model =
         ( D.field "clientY" D.int )
         ( D.at ["target", "className"] D.string )
         ( D.at ["target", "dataset", "id"] D.string |> D.andThen toInt )
-    Moving _ _ _ ->
+    DragTimespan _ _ _ ->
       Sub.batch
         [ E.onMouseMove <| D.map2 MouseMove
           ( D.field "clientX" D.int )
