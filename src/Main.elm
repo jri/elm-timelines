@@ -34,7 +34,8 @@ type alias Model =
   }
 
 type alias Timeline = 
-  { title : String
+  { id : Id
+  , title : String
   , color : Color
   , tsIds : List Int
   }
@@ -42,14 +43,15 @@ type alias Timeline =
 type alias Timespans = Dict Int Timespan
 
 type alias Timespan =
-  { id : Int
+  { id : Id
   , title : String
   , begin : Int
   , end : Int
   }
 
 type DragState
-  = DragTimespan Id TimespanMode Point -- timespan Id, mode, last point
+  = DragTimespan Id TimespanMode Point -- timespan id, mode, last point
+  | DrawRect Id Point Size -- timeline id, start point, width/height
   | None
 
 type TimespanMode
@@ -67,6 +69,11 @@ type alias Point =
   , y : Int
   }
 
+type alias Size =
+  { width : Int
+  , height : Int
+  }
+
 type alias Color = Int -- hue
 
 type alias Id = Int
@@ -75,8 +82,8 @@ init : () -> (Model, Cmd Msg)
 init _ =
   ( Model
     "Terry's life"
-    [ Timeline "Living places" 120 [1, 2] -- green
-    , Timeline "Girlfriends" 0 [3, 4, 5] -- red
+    [ Timeline 6 "Living places" 120 [1, 2] -- green
+    , Timeline 7 "Girlfriends" 0 [3, 4, 5] -- red
     ]
     ( Dict.fromList
       [ (1, Timespan 1 "Park Avenue" 200 350)
@@ -108,15 +115,23 @@ update msg model =
       , Cmd.none
       )
     MouseMove x y ->
-      ( let
-          tsId = timespanId model
-          mode = timespanMode model
-          delta = x - lastX model
-        in
-        { model
-          | timespans = updateTimespan model tsId delta mode
-          , dragState = DragTimespan tsId mode (Point x y)
-        }
+      ( case model.dragState of
+          DragTimespan id mode lastPoint ->
+            let
+              delta = x - lastPoint.x
+            in
+            { model
+              | timespans = updateTimespan model id delta mode
+              , dragState = DragTimespan id mode (Point x y)
+            }
+          DrawRect id startPoint size ->
+            let
+              w = x - startPoint.x
+              h = y - startPoint.y
+            in
+            { model | dragState = DrawRect id startPoint (Size w h) }
+          None ->
+            logError "Reveived MouseMove when DragState is None" "update" model
       , Cmd.none
       )
     MouseUp ->
@@ -126,15 +141,15 @@ update msg model =
 
 updateDragState : String -> Int -> Int -> Int -> DragState
 updateDragState class id x y =
-  DragTimespan
-    id
-    ( case class of
-        "tl-timespan" -> MoveTimespan
-        "tl-resizer-left" -> MoveBegin
-        "tl-resizer-right" -> MoveEnd
-        _ -> MoveTimespan -- TODO: error handling
-    )
-    ( Point x y )
+  let
+    p = Point x y
+  in
+  case class of
+    "tl-timespan"      -> DragTimespan id MoveTimespan p
+    "tl-resizer-left"  -> DragTimespan id MoveBegin p
+    "tl-resizer-right" -> DragTimespan id MoveEnd p
+    "tl-timeline" -> DrawRect id p (Size 0 0)
+    _ -> None
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
@@ -152,27 +167,9 @@ updateTimespan model id delta mode =
             { timespan | begin = timespan.begin + delta }
           MoveEnd ->
             { timespan | end = timespan.end + delta }
-      Nothing -> illegalTimespanId id Nothing
+      Nothing -> illegalTimespanId id "updateTimespan" Nothing
     )
     model.timespans
-
-timespanId : Model -> Id
-timespanId model =
-  case model.dragState of
-    DragTimespan id _ _ -> id
-    None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
-
-timespanMode : Model -> TimespanMode
-timespanMode model =
-  case model.dragState of
-    DragTimespan _ mode _ -> mode
-    None -> log "### ERROR: handling MouseMove message while not in MOVING state" MoveTimespan
-
-lastX : Model -> Int
-lastX model =
-  case model.dragState of
-    DragTimespan _ _ point -> point.x
-    None -> log "### ERROR: handling MouseMove message while not in MOVING state" 0
 
 
 
@@ -187,6 +184,13 @@ subscriptions model =
       case String.toInt str of
         Just int -> D.succeed int
         Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
+    drag : Sub Msg
+    drag = Sub.batch
+      [ E.onMouseMove <| D.map2 MouseMove
+        ( D.field "clientX" D.int )
+        ( D.field "clientY" D.int )
+      , E.onMouseUp (D.succeed MouseUp)
+      ]
   in
   case model.dragState of
     None ->
@@ -195,13 +199,8 @@ subscriptions model =
         ( D.field "clientY" D.int )
         ( D.at ["target", "className"] D.string )
         ( D.at ["target", "dataset", "id"] D.string |> D.andThen toInt )
-    DragTimespan _ _ _ ->
-      Sub.batch
-        [ E.onMouseMove <| D.map2 MouseMove
-          ( D.field "clientX" D.int )
-          ( D.field "clientY" D.int )
-        , E.onMouseUp (D.succeed MouseUp)
-        ]
+    DragTimespan _ _ _ -> drag
+    DrawRect _ _ _ -> drag
 
 
 
@@ -216,12 +215,15 @@ view model =
     ]
     [ h1 [] [ text model.title ]
     , div [] ( List.map ( \timeline -> viewTimeline timeline model ) model.timelines )
+    , viewRectangle model
     ]
 
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
   div
-    [ style "background-color" (hsl timeline.color "95%")
+    [ class "tl-timeline"
+    , attribute "data-id" (String.fromInt timeline.id)
+    , style "background-color" (hsl timeline.color "95%")
     , style "height" "60px"
     , style "margin-bottom" "5px"
     ]
@@ -240,7 +242,7 @@ viewTimeline timeline model =
         ( \tsId ->
           case Dict.get tsId model.timespans of
             Just timespan -> viewTimespan timespan timeline.color
-            Nothing -> illegalTimespanId tsId text ""
+            Nothing -> illegalTimespanId tsId "viewTimeline" text ""
         )
         timeline.tsIds
       )
@@ -281,10 +283,29 @@ viewResizer id pos =
     ]
     []
 
+viewRectangle : Model -> Html Msg
+viewRectangle model =
+  case model.dragState of
+    DrawRect _ p size ->
+      div
+        [ style "position" "absolute"
+        , style "top" (String.fromInt p.y ++ "px")
+        , style "left" (String.fromInt p.x ++ "px")
+        , style "width" (String.fromInt size.width ++ "px")
+        , style "height" (String.fromInt size.height ++ "px")
+        , style "border" "1px dashed gray"
+        ]
+        []
+    _ -> text ""
+
 hsl : Int -> String -> String
 hsl hue lightness =
   "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
-illegalTimespanId : Int -> a -> a
-illegalTimespanId tsId val =
-  log ("### ERROR: " ++ String.fromInt tsId ++ " is an illegal Timespan ID") val
+illegalTimespanId : Int -> String -> a -> a
+illegalTimespanId tsId func val =
+  logError (String.fromInt tsId ++ " is an illegal Timespan ID") func val
+
+logError : String -> String -> a -> a
+logError text func val =
+  log ("ERROR in " ++ func ++ ": " ++ text) val
