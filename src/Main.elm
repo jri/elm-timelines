@@ -209,14 +209,24 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
+  let
+    userSelect = toUserSelect model.dragState
+  in
   div
     [ style "font-family" "sans-serif"
     , style "margin" "20px"
+    , style "user-select" userSelect
     ]
     [ h1 [] [ text model.title ]
     , div [] ( List.map ( \timeline -> viewTimeline timeline model ) model.timelines )
     , viewRectangle model
     ]
+
+toUserSelect : DragState -> String
+toUserSelect dragState =
+  case dragState of
+    None -> "auto"
+    _ -> "none"
 
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
