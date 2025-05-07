@@ -36,8 +36,8 @@ type alias Model =
 type alias Timeline = 
   { id : Id
   , title : String
-  , color : Color
-  , tsIds : List Int
+  , color : Hue
+  , tsIds : List Id
   }
 
 type alias Timespans = Dict Int Timespan
@@ -60,8 +60,8 @@ type TimespanMode
   | MoveEnd
 
 type Msg
-  = MouseDown Int Int String Int -- x y class id
-  | MouseMove Int Int
+  = MouseDown Point Class Id
+  | MouseMove Point
   | MouseUp
 
 type alias Point =
@@ -74,7 +74,9 @@ type alias Size =
   , height : Int
   }
 
-type alias Color = Int -- hue
+type alias Hue = Int
+
+type alias Class = String
 
 type alias Id = Int
 
@@ -110,24 +112,24 @@ update msg model =
   in
   --}
   case msg of
-    MouseDown x y class id ->
-      ( { model | dragState = updateDragState class id x y }
+    MouseDown p class id ->
+      ( { model | dragState = updateDragState class id p }
       , Cmd.none
       )
-    MouseMove x y ->
+    MouseMove p ->
       ( case model.dragState of
           DragTimespan id mode lastPoint ->
             let
-              delta = x - lastPoint.x
+              delta = p.x - lastPoint.x
             in
             { model
               | timespans = updateTimespan model id delta mode
-              , dragState = DragTimespan id mode (Point x y)
+              , dragState = DragTimespan id mode p -- update lastPoint
             }
           DrawRect id startPoint size ->
             let
-              w = x - startPoint.x
-              h = y - startPoint.y
+              w = p.x - startPoint.x
+              h = p.y - startPoint.y
             in
             { model | dragState = DrawRect id startPoint (Size w h) }
           None ->
@@ -139,11 +141,8 @@ update msg model =
       , Cmd.none
       )
 
-updateDragState : String -> Int -> Int -> Int -> DragState
-updateDragState class id x y =
-  let
-    p = Point x y
-  in
+updateDragState : Class -> Id -> Point -> DragState
+updateDragState class id p =
   case class of
     "tl-timespan"      -> DragTimespan id MoveTimespan p
     "tl-resizer-left"  -> DragTimespan id MoveBegin p
@@ -186,17 +185,21 @@ subscriptions model =
         Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
     drag : Sub Msg
     drag = Sub.batch
-      [ E.onMouseMove <| D.map2 MouseMove
-        ( D.field "clientX" D.int )
-        ( D.field "clientY" D.int )
+      [ E.onMouseMove <| D.map MouseMove
+        ( D.map2 Point
+          ( D.field "clientX" D.int )
+          ( D.field "clientY" D.int )
+        )
       , E.onMouseUp (D.succeed MouseUp)
       ]
   in
   case model.dragState of
     None ->
-      E.onMouseDown <| D.map4 MouseDown
-        ( D.field "clientX" D.int )
-        ( D.field "clientY" D.int )
+      E.onMouseDown <| D.map3 MouseDown
+        ( D.map2 Point
+          ( D.field "clientX" D.int )
+          ( D.field "clientY" D.int )
+        )
         ( D.at ["target", "className"] D.string )
         ( D.at ["target", "dataset", "id"] D.string |> D.andThen toInt )
     DragTimespan _ _ _ -> drag
@@ -258,8 +261,8 @@ viewTimeline timeline model =
       )
     ]
 
-viewTimespan : Timespan -> Color -> Html Msg
-viewTimespan timespan color =
+viewTimespan : Timespan -> Hue -> Html Msg
+viewTimespan timespan hue =
   div
     [ class "tl-timespan"
     , attribute "data-id" (String.fromInt timespan.id)
@@ -270,7 +273,7 @@ viewTimespan timespan color =
     , style "height" "100%"
     , style "padding" "5px"
     , style "box-sizing" "border-box"
-    , style "background-color" (hsl color "90%")
+    , style "background-color" (hsl hue "90%")
     ]
     [ text timespan.title
     , viewResizer timespan.id "left"
