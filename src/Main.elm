@@ -213,7 +213,10 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
   let
-    userSelect = toUserSelect model.dragState
+    userSelect =
+      case model.dragState of
+        None -> "auto"
+        _ -> "none"
   in
   div
     [ style "font-family" "sans-serif"
@@ -225,12 +228,6 @@ view model =
     , viewRectangle model
     ]
 
-toUserSelect : DragState -> String
-toUserSelect dragState =
-  case dragState of
-    None -> "auto"
-    _ -> "none"
-
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
   div
@@ -239,6 +236,7 @@ viewTimeline timeline model =
     , style "background-color" (hsl timeline.color "95%")
     , style "height" "60px"
     , style "margin-bottom" "5px"
+    , style "cursor" "crosshair"
     ]
     [ div
       [ style "vertical-align" "top"
@@ -254,15 +252,21 @@ viewTimeline timeline model =
       ( List.map
         ( \tsId ->
           case Dict.get tsId model.timespans of
-            Just timespan -> viewTimespan timespan timeline.color
+            Just timespan -> viewTimespan timespan timeline.color model.dragState
             Nothing -> illegalTimespanId tsId "viewTimeline" text ""
         )
         timeline.tsIds
       )
     ]
 
-viewTimespan : Timespan -> Hue -> Html Msg
-viewTimespan timespan hue =
+viewTimespan : Timespan -> Hue -> DragState -> Html Msg
+viewTimespan timespan hue dragState =
+  let
+    cursor =
+      case dragState of
+        DragTimespan _ _ _ -> "grabbing"
+        _ -> "grab"
+  in
   div
     [ class "tl-timespan"
     , attribute "data-id" (String.fromInt timespan.id)
@@ -274,6 +278,7 @@ viewTimespan timespan hue =
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     , style "background-color" (hsl hue "90%")
+    , style "cursor" cursor
     ]
     [ text timespan.title
     , viewResizer timespan.id "left"
@@ -307,6 +312,7 @@ viewRectangle model =
         , style "width" (String.fromInt size.width ++ "px")
         , style "height" (String.fromInt size.height ++ "px")
         , style "border" "1px dashed gray"
+        , style "cursor" "crosshair"
         ]
         []
     _ -> text ""
