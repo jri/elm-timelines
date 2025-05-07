@@ -28,9 +28,10 @@ main =
 
 type alias Model =
   { title : String
-  , timelines : Dict Int Timeline
-  , timespans: Timespans
+  , timelines : Timelines
+  , timespans : Timespans
   , dragState : DragState
+  , nextId : Id
   }
 
 type alias Timeline = 
@@ -39,6 +40,8 @@ type alias Timeline =
   , color : Hue
   , tsIds : List Id
   }
+
+type alias Timelines = Dict Int Timeline
 
 type alias Timespans = Dict Int Timespan
 
@@ -74,11 +77,11 @@ type alias Size =
   , height : Int
   }
 
-type alias Hue = Int
-
 type alias Class = String
 
 type alias Id = Int
+
+type alias Hue = Int
 
 init : () -> (Model, Cmd Msg)
 init _ =
@@ -98,6 +101,7 @@ init _ =
       ]
     )
     None
+    100 -- TODO: calculate
     , Cmd.none
   )
 
@@ -114,43 +118,56 @@ update msg model =
   in
   --}
   case msg of
-    MouseDown p class id ->
-      ( { model | dragState = updateDragState class id p }
-      , Cmd.none
-      )
-    MouseMove p ->
-      ( case model.dragState of
-          DragTimespan id mode lastPoint ->
-            let
-              delta = p.x - lastPoint.x
-            in
-            { model
-              | timespans = updateTimespan model id delta mode
-              , dragState = DragTimespan id mode p -- update lastPoint
-            }
-          DrawRect id startPoint size ->
-            let
-              w = p.x - startPoint.x
-              h = p.y - startPoint.y
-            in
-            { model | dragState = DrawRect id startPoint (Size w h) }
-          None ->
-            logError "Reveived MouseMove when DragState is None" "update" model
-      , Cmd.none
-      )
-    MouseUp ->
-      ( { model | dragState = None }
-      , Cmd.none
-      )
+    MouseDown p class id -> ( dragStart model class id p, Cmd.none )
+    MouseMove p          -> ( drag model p,               Cmd.none )
+    MouseUp              -> ( dragStop model,             Cmd.none )
 
-updateDragState : Class -> Id -> Point -> DragState
-updateDragState class id p =
-  case class of
+dragStart : Model -> Class -> Id -> Point -> Model
+dragStart model class id p =
+  { model | dragState = case class of
     "tl-timespan"      -> DragTimespan id MoveTimespan p
     "tl-resizer-left"  -> DragTimespan id MoveBegin p
     "tl-resizer-right" -> DragTimespan id MoveEnd p
     "tl-timeline" -> DrawRect id p (Size 0 0)
     _ -> None
+  }
+
+drag : Model -> Point -> Model
+drag model p =
+  case model.dragState of
+    DragTimespan id mode lastPoint ->
+      let
+        delta = p.x - lastPoint.x
+      in
+      { model
+        | timespans = updateTimespan model id delta mode
+        , dragState = DragTimespan id mode p -- update lastPoint
+      }
+    DrawRect id startPoint size ->
+      let
+        w = p.x - startPoint.x
+        h = p.y - startPoint.y
+      in
+      { model | dragState = DrawRect id startPoint (Size w h) }
+    None ->
+      logError "Reveived MouseMove when DragState is None" "update" model
+
+dragStop : Model -> Model
+dragStop model =
+  case model.dragState of
+    DrawRect tlId point size ->
+      let
+        tsId = model.nextId
+        begin = point.x - 150 - 20 - 10 -- width-margin-padding -- TODO
+        end = begin + size.width
+      in
+      { model
+        | timelines = updateTimeline model tlId tsId
+        , timespans = insertNewTimespan model tsId begin end
+        , nextId = model.nextId + 1
+        , dragState = None
+      }
+    _ -> { model | dragState = None }
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
@@ -170,6 +187,23 @@ updateTimespan model id delta mode =
             { timespan | end = timespan.end + delta }
       Nothing -> illegalTimespanId id "updateTimespan" Nothing
     )
+    model.timespans
+
+updateTimeline : Model -> Id -> Id -> Timelines
+updateTimeline model tlId tsId =
+  Dict.update
+    tlId
+    (\tl -> case tl of
+      Just timeline -> Just { timeline | tsIds = tsId :: timeline.tsIds }
+      Nothing -> illegalTimelineId tlId "updateTimeline" Nothing
+    )
+    model.timelines
+
+insertNewTimespan : Model -> Id -> Int -> Int -> Timespans
+insertNewTimespan model tsId begin end =
+  Dict.insert
+    tsId
+    ( Timespan tsId "New Timespan" begin end )
     model.timespans
 
 
@@ -246,6 +280,7 @@ viewTimeline timeline model =
     [ div
       [ style "vertical-align" "top"
       , style "display" "inline-block"
+      , style "width" "150px"
       , style "margin" "5px"
       ]
       [ text timeline.title ]
@@ -333,8 +368,12 @@ hsl hue lightness =
   "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
 illegalTimespanId : Int -> String -> a -> a
-illegalTimespanId tsId func val =
-  logError (String.fromInt tsId ++ " is an illegal Timespan ID") func val
+illegalTimespanId id func val =
+  logError (String.fromInt id ++ " is an illegal Timespan ID") func val
+
+illegalTimelineId : Int -> String -> a -> a
+illegalTimelineId id func val =
+  logError (String.fromInt id ++ " is an illegal Timeline ID") func val
 
 logError : String -> String -> a -> a
 logError text func val =
