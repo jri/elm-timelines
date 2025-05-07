@@ -28,7 +28,7 @@ main =
 
 type alias Model =
   { title : String
-  , timelines : List Timeline
+  , timelines : Dict Int Timeline
   , timespans: Timespans
   , dragState : DragState
   }
@@ -84,9 +84,11 @@ init : () -> (Model, Cmd Msg)
 init _ =
   ( Model
     "Terry's life"
-    [ Timeline 6 "Living places" 120 [1, 2] -- green
-    , Timeline 7 "Girlfriends" 0 [3, 4, 5] -- red
-    ]
+    ( Dict.fromList
+      [ (6, Timeline 6 "Living places" 120 [1, 2]) -- green
+      , (7, Timeline 7 "Girlfriends" 0 [3, 4, 5]) -- red
+      ]
+    )
     ( Dict.fromList
       [ (1, Timespan 1 "Park Avenue" 200 350)
       , (2, Timespan 2 "Lake Street" 400 700)
@@ -177,22 +179,6 @@ updateTimespan model id delta mode =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  let
-    toInt : String -> D.Decoder Int
-    toInt str =
-      case String.toInt str of
-        Just int -> D.succeed int
-        Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
-    drag : Sub Msg
-    drag = Sub.batch
-      [ E.onMouseMove <| D.map MouseMove
-        ( D.map2 Point
-          ( D.field "clientX" D.int )
-          ( D.field "clientY" D.int )
-        )
-      , E.onMouseUp (D.succeed MouseUp)
-      ]
-  in
   case model.dragState of
     None ->
       E.onMouseDown <| D.map3 MouseDown
@@ -201,9 +187,25 @@ subscriptions model =
           ( D.field "clientY" D.int )
         )
         ( D.at ["target", "className"] D.string )
-        ( D.at ["target", "dataset", "id"] D.string |> D.andThen toInt )
-    DragTimespan _ _ _ -> drag
-    DrawRect _ _ _ -> drag
+        ( D.at ["target", "dataset", "id"] D.string |> D.andThen strToIntDecoder )
+    DragTimespan _ _ _ -> dragSub
+    DrawRect _ _ _ -> dragSub
+
+strToIntDecoder : String -> D.Decoder Int
+strToIntDecoder str =
+  case String.toInt str of
+    Just int -> D.succeed int
+    Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
+
+dragSub : Sub Msg
+dragSub = Sub.batch
+  [ E.onMouseMove <| D.map MouseMove
+    ( D.map2 Point
+      ( D.field "clientX" D.int )
+      ( D.field "clientY" D.int )
+    )
+  , E.onMouseUp (D.succeed MouseUp)
+  ]
 
 
 
@@ -224,7 +226,10 @@ view model =
     , style "user-select" userSelect
     ]
     [ h1 [] [ text model.title ]
-    , div [] ( List.map ( \timeline -> viewTimeline timeline model ) model.timelines )
+    , div []
+      ( Dict.values model.timelines |>
+          List.map ( \timeline -> viewTimeline timeline model )
+      )
     , viewRectangle model
     ]
 
@@ -295,6 +300,7 @@ viewResizer id pos =
     , style pos "-5px"
     , style "width" "10px"
     , style "height" "100%"
+    , style "z-index" "1" -- keeps cursor when hovering other timespan
     , style "cursor" "col-resize"
     -- , style "background-color" "hsl(0, 0%, 50%)" -- for debugging
     -- , style "opacity" "0.2"
@@ -316,6 +322,11 @@ viewRectangle model =
         ]
         []
     _ -> text ""
+
+
+
+-- HELPER
+
 
 hsl : Int -> String -> String
 hsl hue lightness =
