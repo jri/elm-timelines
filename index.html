@@ -1,0 +1,30 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Elm Timelines</title>
+  <script src="main.js"></script>
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+
+<script>
+const storedData = localStorage.getItem('elm-timelines');
+const flags = storedData ? JSON.parse(storedData) : null;
+
+const app = Elm.Main.init({
+	node: document.getElementById('app'),
+	flags: flags
+})
+
+// Listen for commands from the `store` port.
+// Turn the data to a string and put it in localStorage.
+app.ports.store.subscribe(function (value) {
+  localStorage.setItem('elm-timelines', JSON.stringify(value))
+})
+</script>
+
+</html>

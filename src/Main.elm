@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Browser.Events as E
@@ -6,6 +6,7 @@ import Html exposing (Html, h1, button, div, span, text)
 import Html.Attributes exposing (class, attribute, style)
 import Dict exposing (Dict)
 import Json.Decode as D
+import Json.Encode as E
 import Debug exposing (log)
 
 
@@ -23,6 +24,13 @@ main =
 
 
 
+-- PORTS
+
+
+port store : E.Value -> Cmd msg
+
+
+
 -- MODEL
 
 
@@ -34,6 +42,10 @@ type alias Model =
   , nextId : Id
   }
 
+
+type alias Timelines = Dict Int Timeline
+
+
 type alias Timeline = 
   { id : Id
   , title : String
@@ -41,9 +53,9 @@ type alias Timeline =
   , tsIds : List Id
   }
 
-type alias Timelines = Dict Int Timeline
 
 type alias Timespans = Dict Int Timespan
+
 
 type alias Timespan =
   { id : Id
@@ -52,39 +64,51 @@ type alias Timespan =
   , end : Int
   }
 
+
 type DragState
   = DragTimespan Id TimespanMode Point -- timespan id, mode, last point
   | DrawRect Id Point Size -- timeline id, start point, width/height
   | None
+
 
 type TimespanMode
   = MoveTimespan
   | MoveBegin
   | MoveEnd
 
+
 type Msg
   = MouseDown Point Class Id
   | MouseMove Point
   | MouseUp
+
 
 type alias Point =
   { x : Int
   , y : Int
   }
 
+
 type alias Size =
   { width : Int
   , height : Int
   }
 
+
 type alias Class = String
+
 
 type alias Id = Int
 
+
 type alias Hue = Int
 
-init : () -> (Model, Cmd Msg)
-init _ =
+
+init : E.Value -> ( Model, Cmd Msg )
+init flags =
+  let
+    _ = log "Flags" flags
+  in
   ( Model
     "Terry's life"
     ( Dict.fromList
@@ -120,7 +144,12 @@ update msg model =
   case msg of
     MouseDown p class id -> ( dragStart model class id p, Cmd.none )
     MouseMove p          -> ( drag model p,               Cmd.none )
-    MouseUp              -> ( dragStop model,             Cmd.none )
+    MouseUp ->
+      let
+        newModel = dragStop model
+      in
+      ( newModel, encode newModel |> store )
+
 
 dragStart : Model -> Class -> Id -> Point -> Model
 dragStart model class id p =
@@ -131,6 +160,7 @@ dragStart model class id p =
     "tl-timeline" -> DrawRect id p (Size 0 0)
     _ -> None
   }
+
 
 drag : Model -> Point -> Model
 drag model p =
@@ -152,6 +182,7 @@ drag model p =
     None ->
       logError "Reveived MouseMove when DragState is None" "update" model
 
+
 dragStop : Model -> Model
 dragStop model =
   case model.dragState of
@@ -168,6 +199,7 @@ dragStop model =
         , dragState = None
       }
     _ -> { model | dragState = None }
+
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
@@ -189,6 +221,7 @@ updateTimespan model id delta mode =
     )
     model.timespans
 
+
 updateTimeline : Model -> Id -> Id -> Timelines
 updateTimeline model tlId tsId =
   Dict.update
@@ -198,6 +231,7 @@ updateTimeline model tlId tsId =
       Nothing -> illegalTimelineId tlId "updateTimeline" Nothing
     )
     model.timelines
+
 
 insertNewTimespan : Model -> Id -> Int -> Int -> Timespans
 insertNewTimespan model tsId begin end =
@@ -225,11 +259,13 @@ subscriptions model =
     DragTimespan _ _ _ -> dragSub
     DrawRect _ _ _ -> dragSub
 
+
 strToIntDecoder : String -> D.Decoder Int
 strToIntDecoder str =
   case String.toInt str of
     Just int -> D.succeed int
     Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
+
 
 dragSub : Sub Msg
 dragSub = Sub.batch
@@ -267,6 +303,7 @@ view model =
     , viewRectangle model
     ]
 
+
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
   div
@@ -299,6 +336,7 @@ viewTimeline timeline model =
       )
     ]
 
+
 viewTimespan : Timespan -> Hue -> DragState -> Html Msg
 viewTimespan timespan hue dragState =
   let
@@ -325,6 +363,7 @@ viewTimespan timespan hue dragState =
     , viewResizer timespan.id "right"
     ]
 
+
 viewResizer : Id -> String -> Html Msg
 viewResizer id pos =
   div
@@ -341,6 +380,7 @@ viewResizer id pos =
     -- , style "opacity" "0.2"
     ]
     []
+
 
 viewRectangle : Model -> Html Msg
 viewRectangle model =
@@ -360,6 +400,28 @@ viewRectangle model =
 
 
 
+-- JSON ENCODE/DECODE
+
+
+-- TODO
+encode : Model -> E.Value
+encode model =
+  E.object
+    [ ( "title", E.string model.title )
+    , ( "timelines", E.dict
+        ( String.fromInt )
+        ( \timeline -> E.object
+          [ ( "id",    E.int        timeline.id )
+          , ( "title", E.string     timeline.title )
+          , ( "color", E.int        timeline.color )
+          , ( "tsIds", E.list E.int timeline.tsIds )
+          ]
+        ) model.timelines )
+    , ( "nextId", E.int model.nextId )
+    ]
+
+
+
 -- HELPER
 
 
@@ -367,13 +429,16 @@ hsl : Int -> String -> String
 hsl hue lightness =
   "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
+
 illegalTimespanId : Int -> String -> a -> a
 illegalTimespanId id func val =
   logError (String.fromInt id ++ " is an illegal Timespan ID") func val
 
+
 illegalTimelineId : Int -> String -> a -> a
 illegalTimelineId id func val =
   logError (String.fromInt id ++ " is an illegal Timeline ID") func val
+
 
 logError : String -> String -> a -> a
 logError text func val =
