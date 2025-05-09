@@ -38,9 +38,8 @@ type alias Model =
   { title : String
   , timelines : Timelines
   , timespans : Timespans
+  , dragState : DragState -- transient
   , nextId : Id
-  -- transient
-  , dragState : DragState
   }
 
 
@@ -101,12 +100,8 @@ type Msg
   | MouseUp
 
 
-init : E.Value -> ( Model, Cmd Msg )
-init flags =
-  let
-    _ = log "Flags" flags
-  in
-  ( Model
+defaultModel =
+  Model
     "Terry's life"
     ( Dict.fromList
       [ (6, Timeline 6 "Living places" 120 [1, 2]) -- green
@@ -123,6 +118,17 @@ init flags =
     )
     None
     100 -- TODO: calculate
+
+init : E.Value -> ( Model, Cmd Msg )
+init flags =
+  ( case D.decodeValue decoder flags of
+      Ok model ->
+        log "Read from localStorage" model
+      Err e ->
+        let
+          _ = log "Could not read model from localStorage" e
+        in
+          defaultModel
     , Cmd.none
   )
 
@@ -400,7 +406,6 @@ viewRectangle model =
 -- JSON ENCODE/DECODE
 
 
--- TODO
 encode : Model -> E.Value
 encode model =
   E.object
@@ -429,6 +434,54 @@ encode model =
       )
     , ("nextId", E.int model.nextId)
     ]
+
+
+decoder : D.Decoder Model
+decoder = D.map5 Model
+  (D.field "title" D.string)
+  (D.field "timelines"
+    (D.dict
+      (D.map4 Timeline
+        (D.field "id"    D.int)
+        (D.field "title" D.string)
+        (D.field "color" D.int)
+        (D.field "tsIds" (D.list D.int))
+      ) |> D.andThen strToIntDictDecoder
+    )
+  )
+  (D.field "timespans"
+    (D.dict
+      (D.map4 Timespan
+        (D.field "id"    D.int)
+        (D.field "title" D.string)
+        (D.field "begin" D.int)
+        (D.field "end"   D.int)
+      ) |> D.andThen strToIntDictDecoder
+    )
+  )
+  (D.succeed None)
+  (D.field "nextId" D.int)
+
+
+strToIntDictDecoder : Dict String v -> D.Decoder (Dict Int v)
+strToIntDictDecoder strDict =
+  case strToIntDict strDict of
+    Just dict -> D.succeed dict
+    Nothing -> D.fail "Transformation Dict String -> Int failed"
+
+
+strToIntDict : Dict String v -> Maybe (Dict Int v)
+strToIntDict strDict =
+  strDict |> Dict.foldl
+    ( \k v b ->
+      case b of
+        Just b_ ->
+          case String.toInt k of
+            Just i -> Just (Dict.insert i v b_)
+            Nothing -> Nothing
+        Nothing -> Nothing
+    )
+    (Just Dict.empty)
 
 
 
