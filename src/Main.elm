@@ -38,8 +38,9 @@ type alias Model =
   { title : String
   , timelines : Timelines
   , timespans : Timespans
-  , dragState : DragState
   , nextId : Id
+  -- transient
+  , dragState : DragState
   }
 
 
@@ -77,12 +78,6 @@ type TimespanMode
   | MoveEnd
 
 
-type Msg
-  = MouseDown Point Class Id
-  | MouseMove Point
-  | MouseUp
-
-
 type alias Point =
   { x : Int
   , y : Int
@@ -96,12 +91,14 @@ type alias Size =
 
 
 type alias Class = String
-
-
 type alias Id = Int
-
-
 type alias Hue = Int
+
+
+type Msg
+  = MouseDown Point Class Id
+  | MouseMove Point
+  | MouseUp
 
 
 init : E.Value -> ( Model, Cmd Msg )
@@ -407,17 +404,30 @@ viewRectangle model =
 encode : Model -> E.Value
 encode model =
   E.object
-    [ ( "title", E.string model.title )
-    , ( "timelines", E.dict
-        ( String.fromInt )
+    [ ("title", E.string model.title)
+    , ("timelines", E.dict
+        String.fromInt
         ( \timeline -> E.object
-          [ ( "id",    E.int        timeline.id )
-          , ( "title", E.string     timeline.title )
-          , ( "color", E.int        timeline.color )
-          , ( "tsIds", E.list E.int timeline.tsIds )
+          [ ("id",    E.int        timeline.id)
+          , ("title", E.string     timeline.title)
+          , ("color", E.int        timeline.color)
+          , ("tsIds", E.list E.int timeline.tsIds)
           ]
-        ) model.timelines )
-    , ( "nextId", E.int model.nextId )
+        )
+        model.timelines
+      )
+    , ("timespans", E.dict
+        String.fromInt
+        ( \timespan -> E.object
+          [ ("id",    E.int    timespan.id)
+          , ("title", E.string timespan.title)
+          , ("begin", E.int    timespan.begin)
+          , ("end",   E.int    timespan.end)
+          ]
+        )
+        model.timespans
+      )
+    , ("nextId", E.int model.nextId)
     ]
 
 
