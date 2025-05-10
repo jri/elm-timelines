@@ -114,8 +114,8 @@ defaultModel =
     ( Dict.fromList
       [ (1, Timespan 1 "Park Avenue" 200 350)
       , (2, Timespan 2 "Lake Street" 400 700)
-      , (3, Timespan 3 "Barbara" 150 315)
-      , (4, Timespan 4 "Caroline" 320 350)
+      , (3, Timespan 3 "Barbara" 128 315)
+      , (4, Timespan 4 "Caroline" 330 360)
       , (5, Timespan 5 "Marina" 500 600)
       ]
     )
@@ -125,7 +125,7 @@ defaultModel =
 
 conf =
   { beginYear = 1980
-  , endYear = 2000
+  , endYear = 2025
   , pixelPerYear = 64
   }
 
@@ -310,11 +310,22 @@ view model =
     , style "user-select" userSelect
     ]
     [ h1 [] [ text model.title ]
-    , viewTimeScale
-    , div []
-      ( Dict.values model.timelines |>
-          List.map ( \timeline -> viewTimeline timeline model )
-      )
+    , div
+      [ style "display" "flex" ]
+      [ div
+        [ style "margin-top" "30px" ]
+        ( Dict.values model.timelines |>
+            List.map ( \timeline -> viewTimelineHeader timeline model )
+        )
+      , div
+        [ style "overflow" "auto" ]
+        [ viewTimeScale
+        , div []
+          ( Dict.values model.timelines |>
+              List.map ( \timeline -> viewTimeline timeline model )
+          )
+        ]
+      ]
     , viewRectangle model
     ]
 
@@ -322,58 +333,62 @@ view model =
 viewTimeScale : Html Msg
 viewTimeScale =
   svg
-    [ width "1024"
-    , height "40"
-    , viewBox "0 0 1024 40"
+    [ width "2000"
+    , height "30"
+    , viewBox "0 0 2000 30"
+    , style "font-size" "14px"
+    , style "margin-bottom" "1px"
+    -- , style "background-color" "beige"
     ]
-    ( List.range conf.beginYear conf.endYear |>
-        List.map (\year ->
-          let
-            x_ = (year - conf.beginYear) * conf.pixelPerYear
-            x1_ = x_ |> String.fromInt
-            y1_ = "0"
-            x2_ = x1_
-            y2_ = "40"
-            tx = (x_ + 3) |> String.fromInt
-          in
-          [ line [ x1 x1_, y1 y1_, x2 x2_, y2 y2_, stroke "gray" ] []
-          , text_ [ x tx, y "12", fill "gray" ] [ text (String.fromInt year) ]
-          ]
-        ) |> List.foldr (++) []
+    ( List.range conf.beginYear conf.endYear |> List.map
+      (\year ->
+        let
+          x_ = (year - conf.beginYear) * conf.pixelPerYear
+          x1_ = x_ |> String.fromInt
+          y1_ = "0"
+          x2_ = x1_
+          y2_ = "40"
+          tx = (x_ + 3) |> String.fromInt
+        in
+        [ line [ x1 x1_, y1 y1_, x2 x2_, y2 y2_, stroke "gray" ] []
+        , text_ [ x tx, y "12", fill "gray" ] [ text (String.fromInt year) ]
+        ]
+      )
+      |> List.foldr (++) []
     )
 
+
+viewTimelineHeader : Timeline -> Model -> Html Msg
+viewTimelineHeader timeline model =
+  div
+    [ style "background-color" (hsl timeline.color "95%")
+    , style "width" "150px"
+    , style "height" "60px"
+    , style "margin-top" "5px"
+    , style "padding" "5px"
+    , style "box-sizing" "border-box"
+    ]
+    [ text timeline.title ]
 
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
   div
     [ class "tl-timeline"
     , attribute "data-id" (String.fromInt timeline.id)
-    , style "background-color" (hsl timeline.color "95%")
+    , style "position" "relative"
     , style "height" "60px"
     , style "margin-bottom" "5px"
+    , style "background-color" (hsl timeline.color "95%")
     , style "cursor" "crosshair"
     ]
-    [ div
-      [ style "vertical-align" "top"
-      , style "display" "inline-block"
-      , style "width" "150px"
-      , style "margin" "5px"
-      ]
-      [ text timeline.title ]
-    , div
-      [ style "position" "relative"
-      , style "display" "inline-block"
-      , style "height" "100%"
-      ]
-      ( List.map
-        ( \tsId ->
-          case Dict.get tsId model.timespans of
-            Just timespan -> viewTimespan timespan timeline.color model.dragState
-            Nothing -> illegalTimespanId tsId "viewTimeline" text ""
-        )
-        timeline.tsIds
+    ( List.map
+      ( \tsId ->
+        case Dict.get tsId model.timespans of
+          Just timespan -> viewTimespan timespan timeline.color model.dragState
+          Nothing -> illegalTimespanId tsId "viewTimeline" text ""
       )
-    ]
+      timeline.tsIds
+    )
 
 
 viewTimespan : Timespan -> Hue -> DragState -> Html Msg
