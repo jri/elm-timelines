@@ -16,8 +16,8 @@ const storedData = localStorage.getItem('elm-timelines')
 const flags = storedData ? JSON.parse(storedData) : null
 
 const app = Elm.Main.init({
-	node: document.getElementById('app'),
-	flags: flags
+  node: document.getElementById('app'),
+  flags: flags
 })
 
 // Listen for commands from the `store` port.

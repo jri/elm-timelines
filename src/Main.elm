@@ -2,8 +2,9 @@ port module Main exposing (..)
 
 import Browser
 import Browser.Events as E
-import Html exposing (Html, h1, button, div, span, text)
-import Html.Attributes exposing (class, attribute, style)
+import Html exposing (Html, Attribute, h1, div, span, text, button, input)
+import Html.Attributes exposing (class, attribute, style, value)
+import Html.Events exposing (onClick, on, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
@@ -41,6 +42,7 @@ type alias Model =
   , timelines : Timelines
   , timespans : Timespans
   , dragState : DragState -- transient
+  , editMode : EditMode   -- transient
   , nextId : Id
   }
 
@@ -79,6 +81,12 @@ type TimespanMode
   | MoveEnd
 
 
+type EditMode
+  = EditTimeline Id
+  | EditTimespan Id
+  | EditNone
+
+
 type alias Point =
   { x : Int
   , y : Int
@@ -97,9 +105,11 @@ type alias Hue = Int
 
 
 type Msg
-  = MouseDown Point Class Id
-  | MouseMove Point
-  | MouseUp
+  = DragStart Point Class Id
+  | Drag Point
+  | DragEnd
+  | Edit EditMode
+  | EnterKey
 
 
 defaultModel : Model
@@ -120,7 +130,8 @@ defaultModel =
       ]
     )
     None
-    100 -- TODO: calculate
+    EditNone
+    100
 
 
 conf =
@@ -150,19 +161,21 @@ init flags =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  {--
+  {--}
   let
     _ = log "UPDATE" msg
   in
   --}
   case msg of
-    MouseDown p class id -> ( dragStart model class id p, Cmd.none )
-    MouseMove p          -> ( drag model p,               Cmd.none )
-    MouseUp ->
+    DragStart p class id -> ( dragStart model class id p, Cmd.none )
+    Drag p -> ( drag model p, Cmd.none )
+    DragEnd ->
       let
         newModel = dragStop model
       in
       ( newModel, encode newModel |> store )
+    Edit editMode -> ( {model | editMode = editMode}, Cmd.none )
+    EnterKey -> ( model, Cmd.none ) -- TODO
 
 
 dragStart : Model -> Class -> Id -> Point -> Model
@@ -194,7 +207,7 @@ drag model p =
       in
       { model | dragState = DrawRect id startPoint (Size w h) }
     None ->
-      logError "Reveived MouseMove when DragState is None" "update" model
+      logError "Received Drag when DragState is None" "update" model
 
 
 dragStop : Model -> Model
@@ -263,7 +276,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
   case model.dragState of
     None ->
-      E.onMouseDown <| D.map3 MouseDown
+      E.onMouseDown <| D.map3 DragStart
         ( D.map2 Point
           ( D.field "clientX" D.int )
           ( D.field "clientY" D.int )
@@ -283,12 +296,12 @@ strToIntDecoder str =
 
 dragSub : Sub Msg
 dragSub = Sub.batch
-  [ E.onMouseMove <| D.map MouseMove
+  [ E.onMouseMove <| D.map Drag
     ( D.map2 Point
       ( D.field "clientX" D.int )
       ( D.field "clientY" D.int )
     )
-  , E.onMouseUp (D.succeed MouseUp)
+  , E.onMouseUp (D.succeed DragEnd)
   ]
 
 
@@ -368,7 +381,8 @@ viewTimelineHeader timeline model =
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     ]
-    [ text timeline.title ]
+    [ inlineEdit model (EditTimeline timeline.id) timeline.id timeline.title ]
+
 
 viewTimeline : Timeline -> Model -> Html Msg
 viewTimeline timeline model =
@@ -384,15 +398,15 @@ viewTimeline timeline model =
     ( List.map
       ( \tsId ->
         case Dict.get tsId model.timespans of
-          Just timespan -> viewTimespan timespan timeline.color model.dragState
+          Just timespan -> viewTimespan model timespan timeline.color model.dragState
           Nothing -> illegalTimespanId tsId "viewTimeline" text ""
       )
       timeline.tsIds
     )
 
 
-viewTimespan : Timespan -> Hue -> DragState -> Html Msg
-viewTimespan timespan hue dragState =
+viewTimespan : Model -> Timespan -> Hue -> DragState -> Html Msg
+viewTimespan model timespan hue dragState =
   let
     cursor =
       case dragState of
@@ -412,7 +426,7 @@ viewTimespan timespan hue dragState =
     , style "background-color" (hsl hue "90%")
     , style "cursor" cursor
     ]
-    [ text timespan.title
+    [ inlineEdit model (EditTimespan timespan.id) timespan.id timespan.title
     , viewResizer timespan.id "left"
     , viewResizer timespan.id "right"
     ]
@@ -453,6 +467,43 @@ viewRectangle model =
     _ -> text ""
 
 
+inlineEdit : Model -> EditMode -> Id -> String -> Html Msg
+inlineEdit model editMode id title =
+  div
+    [ onClick (Edit editMode) ]
+    [ if isEditMode model id then
+        input
+          [ value title
+          , style "width" "130px"
+          , onEnter EnterKey
+          ]
+          []
+      else
+        text title
+    ]
+
+
+onEnter : Msg -> Attribute Msg
+onEnter msg =
+  let
+    isEnter code =
+      if code == 13 then
+        D.succeed msg
+      else
+        D.fail "not ENTER"
+  in
+    on "keydown" (keyCode |> D.andThen isEnter)
+
+
+isEditMode : Model -> Id -> Bool
+isEditMode model id =
+  case model.editMode of
+    EditTimeline id_ -> id_ == id
+    EditTimespan id_ -> id_ == id
+    EditNone -> False
+
+
+
 
 -- ENCODE/DECODE JS VALUES
 
@@ -488,7 +539,7 @@ encode model =
 
 
 decoder : D.Decoder Model
-decoder = D.map5 Model
+decoder = D.map6 Model
   (D.field "title" D.string)
   (D.field "timelines"
     (D.dict
@@ -511,6 +562,7 @@ decoder = D.map5 Model
     )
   )
   (D.succeed None)
+  (D.succeed EditNone)
   (D.field "nextId" D.int)
 
 
