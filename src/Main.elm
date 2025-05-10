@@ -4,6 +4,8 @@ import Browser
 import Browser.Events as E
 import Html exposing (Html, h1, button, div, span, text)
 import Html.Attributes exposing (class, attribute, style)
+import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
+import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
 import Json.Decode as D
 import Json.Encode as E
@@ -46,7 +48,7 @@ type alias Model =
 type alias Timelines = Dict Int Timeline
 
 
-type alias Timeline = 
+type alias Timeline =
   { id : Id
   , title : String
   , color : Hue
@@ -100,6 +102,7 @@ type Msg
   | MouseUp
 
 
+defaultModel : Model
 defaultModel =
   Model
     "Terry's life"
@@ -118,6 +121,14 @@ defaultModel =
     )
     None
     100 -- TODO: calculate
+
+
+conf =
+  { beginYear = 1980
+  , endYear = 2000
+  , pixelPerYear = 64
+  }
+
 
 init : E.Value -> ( Model, Cmd Msg )
 init flags =
@@ -299,12 +310,37 @@ view model =
     , style "user-select" userSelect
     ]
     [ h1 [] [ text model.title ]
+    , viewTimeScale
     , div []
       ( Dict.values model.timelines |>
           List.map ( \timeline -> viewTimeline timeline model )
       )
     , viewRectangle model
     ]
+
+
+viewTimeScale : Html Msg
+viewTimeScale =
+  svg
+    [ width "1024"
+    , height "40"
+    , viewBox "0 0 1024 40"
+    ]
+    ( List.range conf.beginYear conf.endYear |>
+        List.map (\year ->
+          let
+            x_ = (year - conf.beginYear) * conf.pixelPerYear
+            x1_ = x_ |> String.fromInt
+            y1_ = "0"
+            x2_ = x1_
+            y2_ = "40"
+            tx = (x_ + 3) |> String.fromInt
+          in
+          [ line [ x1 x1_, y1 y1_, x2 x2_, y2 y2_, stroke "gray" ] []
+          , text_ [ x tx, y "12", fill "gray" ] [ text (String.fromInt year) ]
+          ]
+        ) |> List.foldr (++) []
+    )
 
 
 viewTimeline : Timeline -> Model -> Html Msg
@@ -403,7 +439,7 @@ viewRectangle model =
 
 
 
--- JSON ENCODE/DECODE
+-- ENCODE/DECODE JS VALUES
 
 
 encode : Model -> E.Value
