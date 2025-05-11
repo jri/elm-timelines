@@ -4,7 +4,7 @@ import Browser
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
 import Html.Attributes exposing (class, attribute, style, value)
-import Html.Events exposing (onClick, on, keyCode)
+import Html.Events exposing (onClick, on, keyCode, targetValue)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
@@ -108,8 +108,8 @@ type Msg
   = DragStart Point Class Id
   | Drag Point
   | DragEnd
-  | Edit EditMode
-  | EnterKey
+  | EditStart EditMode
+  | EditEnd String
 
 
 defaultModel : Model
@@ -174,8 +174,13 @@ update msg model =
         newModel = dragStop model
       in
       ( newModel, encode newModel |> store )
-    Edit editMode -> ( {model | editMode = editMode}, Cmd.none )
-    EnterKey -> ( model, Cmd.none ) -- TODO
+    EditStart editMode -> ( {model | editMode = editMode}, Cmd.none )
+    EditEnd title ->
+      let
+        newModel_ = updateTitle model title
+        newModel = { newModel_ | editMode = EditNone }
+      in
+      ( newModel, encode newModel |> store )
 
 
 dragStart : Model -> Class -> Id -> Point -> Model
@@ -267,6 +272,27 @@ insertNewTimespan model tsId begin end =
     ( Timespan tsId "New Timespan" begin end )
     model.timespans
 
+
+updateTitle : Model -> String -> Model
+updateTitle model title =
+  case model.editMode of
+    EditTimeline id ->
+      { model | timelines =
+        model.timelines |> Dict.update id
+          (\tl -> case tl of
+            Just timeline -> Just { timeline | title = title }
+            Nothing -> illegalTimelineId id "updateTitle" Nothing
+          )
+      }
+    EditTimespan id ->
+      { model | timespans =
+        model.timespans |> Dict.update id
+          (\ts -> case ts of
+            Just timespan -> Just { timespan | title = title }
+            Nothing -> illegalTimespanId id "updateTitle" Nothing
+          )
+      }
+    EditNone -> logError "called when edit mode is EditNone" "updateTitle" model
 
 
 -- SUBSCRIPTIONS
@@ -381,7 +407,7 @@ viewTimelineHeader timeline model =
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     ]
-    [ inlineEdit model (EditTimeline timeline.id) timeline.id timeline.title ]
+    [ inlineEdit model (EditTimeline timeline.id) timeline.title ]
 
 
 viewTimeline : Timeline -> Model -> Html Msg
@@ -426,7 +452,7 @@ viewTimespan model timespan hue dragState =
     , style "background-color" (hsl hue "90%")
     , style "cursor" cursor
     ]
-    [ inlineEdit model (EditTimespan timespan.id) timespan.id timespan.title
+    [ inlineEdit model (EditTimespan timespan.id) timespan.title
     , viewResizer timespan.id "left"
     , viewResizer timespan.id "right"
     ]
@@ -467,32 +493,43 @@ viewRectangle model =
     _ -> text ""
 
 
-inlineEdit : Model -> EditMode -> Id -> String -> Html Msg
-inlineEdit model editMode id title =
-  div
-    [ onClick (Edit editMode) ]
-    [ if isEditMode model id then
-        input
-          [ value title
-          , style "width" "130px"
-          , onEnter EnterKey
-          ]
-          []
-      else
-        text title
-    ]
+inlineEdit : Model -> EditMode -> String -> Html Msg
+inlineEdit model editMode title =
+  let
+    id_ = case editMode of
+      EditTimeline id -> Just id
+      EditTimespan id -> Just id
+      EditNone -> Nothing
+  in
+  case id_ of
+    Just id ->
+      div
+        [ onClick (EditStart editMode) ]
+        [ if isEditMode model id then
+            input
+              [ value title
+              , style "width" "130px"
+              , onEnter EditEnd
+              ]
+              []
+          else
+            text title
+        ]
+    Nothing -> logError "called when edit mode is EditNone" "inlineEdit" (text "")
 
 
-onEnter : Msg -> Attribute Msg
+onEnter : (String -> Msg) -> Attribute Msg
 onEnter msg =
   let
     isEnter code =
       if code == 13 then
-        D.succeed msg
+        targetValue
       else
         D.fail "not ENTER"
+    readValue value =
+      D.succeed (msg value)
   in
-    on "keydown" (keyCode |> D.andThen isEnter)
+    on "keydown" (keyCode |> D.andThen isEnter |> D.andThen readValue)
 
 
 isEditMode : Model -> Id -> Bool
@@ -501,7 +538,6 @@ isEditMode model id =
     EditTimeline id_ -> id_ == id
     EditTimespan id_ -> id_ == id
     EditNone -> False
-
 
 
 
