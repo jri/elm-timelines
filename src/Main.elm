@@ -42,7 +42,7 @@ type alias Model =
   , timelines : Timelines
   , timespans : Timespans
   , dragState : DragState -- transient
-  , editMode : EditMode   -- transient
+  , editState : EditState -- transient
   , nextId : Id
   }
 
@@ -81,7 +81,7 @@ type TimespanMode
   | MoveEnd
 
 
-type EditMode
+type EditState
   = EditTimeline Id
   | EditTimespan Id
   | EditNone
@@ -105,11 +105,12 @@ type alias Hue = Int
 
 
 type Msg
-  = DragStart Point Class Id
+  = AddTimeline
+  | EditStart EditState
+  | EditEnd String
+  | DragStart Point Class Id
   | Drag Point
   | DragEnd
-  | EditStart EditMode
-  | EditEnd String
 
 
 defaultModel : Model
@@ -145,12 +146,12 @@ init : E.Value -> ( Model, Cmd Msg )
 init flags =
   ( case D.decodeValue decoder flags of
       Ok model ->
-        log "Read from localStorage" model
+        log "Reading from localStorage" model
       Err e ->
         let
-          _ = log "Could not read model from localStorage" e
+          _ = log "Reading from localStorage" e
         in
-          defaultModel
+        defaultModel
     , Cmd.none
   )
 
@@ -167,20 +168,38 @@ update msg model =
   in
   --}
   case msg of
+    AddTimeline ->
+      let
+        newModel = addTimeline model
+      in
+      ( newModel, encode newModel |> store )
+    EditStart editState -> ( {model | editState = editState}, Cmd.none )
+    EditEnd title ->
+      let
+        newModel_ = updateTitle model title
+        newModel = { newModel_ | editState = EditNone }
+      in
+      ( newModel, encode newModel |> store )
     DragStart p class id -> ( dragStart model class id p, Cmd.none )
     Drag p -> ( drag model p, Cmd.none )
     DragEnd ->
       let
-        newModel = dragStop model
+        newModel = dragEnd model
       in
       ( newModel, encode newModel |> store )
-    EditStart editMode -> ( {model | editMode = editMode}, Cmd.none )
-    EditEnd title ->
-      let
-        newModel_ = updateTitle model title
-        newModel = { newModel_ | editMode = EditNone }
-      in
-      ( newModel, encode newModel |> store )
+
+
+addTimeline : Model -> Model
+addTimeline model =
+  let
+    id = model.nextId
+  in
+    { model
+      | timelines = model.timelines |> Dict.insert id
+        ( Timeline id "New Timeline" 0 [] ) -- TODO: color
+      , editState = EditTimeline id
+      , nextId = model.nextId + 1
+    }
 
 
 dragStart : Model -> Class -> Id -> Point -> Model
@@ -215,20 +234,21 @@ drag model p =
       logError "Received Drag when DragState is None" "update" model
 
 
-dragStop : Model -> Model
-dragStop model =
+dragEnd : Model -> Model
+dragEnd model =
   case model.dragState of
     DrawRect tlId point size ->
       let
         tsId = model.nextId
-        begin = point.x - 150 - 20 - 10 -- width-margin-padding -- TODO
+        begin = point.x - 150 - 18 -- width-margin-padding -- TODO
         end = begin + size.width
       in
       { model
         | timelines = updateTimeline model tlId tsId
         , timespans = insertNewTimespan model tsId begin end
-        , nextId = model.nextId + 1
         , dragState = None
+        , editState = EditTimespan tsId
+        , nextId = model.nextId + 1
       }
     _ -> { model | dragState = None }
 
@@ -267,26 +287,24 @@ updateTimeline model tlId tsId =
 
 insertNewTimespan : Model -> Id -> Int -> Int -> Timespans
 insertNewTimespan model tsId begin end =
-  Dict.insert
-    tsId
+  model.timespans |> Dict.insert tsId
     ( Timespan tsId "New Timespan" begin end )
-    model.timespans
 
 
 updateTitle : Model -> String -> Model
 updateTitle model title =
-  case model.editMode of
+  case model.editState of
     EditTimeline id ->
-      { model | timelines =
-        model.timelines |> Dict.update id
+      { model | timelines = model.timelines |>
+        Dict.update id
           (\tl -> case tl of
             Just timeline -> Just { timeline | title = title }
             Nothing -> illegalTimelineId id "updateTitle" Nothing
           )
       }
     EditTimespan id ->
-      { model | timespans =
-        model.timespans |> Dict.update id
+      { model | timespans = model.timespans |>
+        Dict.update id
           (\ts -> case ts of
             Just timespan -> Just { timespan | title = title }
             Nothing -> illegalTimespanId id "updateTitle" Nothing
@@ -345,6 +363,7 @@ view model =
   in
   div
     [ style "font-family" "sans-serif"
+    , style "font-size" "16px"
     , style "margin" "20px"
     , style "user-select" userSelect
     ]
@@ -365,6 +384,7 @@ view model =
           )
         ]
       ]
+    , viewToolbar
     , viewRectangle model
     ]
 
@@ -396,6 +416,15 @@ viewTimeScale =
       |> List.foldr (++) []
     )
 
+
+viewToolbar : Html Msg
+viewToolbar =
+  div
+    [ style "margin-top" "26px" ]
+    [ button
+      [ onClick AddTimeline ]
+      [ text "Add Timeline"]
+    ]
 
 viewTimelineHeader : Timeline -> Model -> Html Msg
 viewTimelineHeader timeline model =
@@ -493,10 +522,10 @@ viewRectangle model =
     _ -> text ""
 
 
-inlineEdit : Model -> EditMode -> String -> Html Msg
-inlineEdit model editMode title =
+inlineEdit : Model -> EditState -> String -> Html Msg
+inlineEdit model editState title =
   let
-    id_ = case editMode of
+    id_ = case editState of
       EditTimeline id -> Just id
       EditTimespan id -> Just id
       EditNone -> Nothing
@@ -504,11 +533,15 @@ inlineEdit model editMode title =
   case id_ of
     Just id ->
       div
-        [ onClick (EditStart editMode) ]
+        [ onClick (EditStart editState) ]
         [ if isEditMode model id then
             input
               [ value title
+              , style "position" "relative"
+              , style "top" "-6px"
+              , style "left" "-4px"
               , style "width" "130px"
+              , style "font-size" "16px"
               , onEnter EditEnd
               ]
               []
@@ -534,7 +567,7 @@ onEnter msg =
 
 isEditMode : Model -> Id -> Bool
 isEditMode model id =
-  case model.editMode of
+  case model.editState of
     EditTimeline id_ -> id_ == id
     EditTimespan id_ -> id_ == id
     EditNone -> False
