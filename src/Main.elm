@@ -162,7 +162,7 @@ init flags =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  {--}
+  {--
   let
     _ = log "UPDATE" msg
   in
@@ -198,7 +198,7 @@ addTimeline model =
       | timelines = model.timelines |> Dict.insert id
         ( Timeline id "New Timeline" 0 [] ) -- TODO: color
       , editState = EditTimeline id
-      , nextId = model.nextId + 1
+      , nextId = id + 1
     }
 
 
@@ -478,7 +478,8 @@ viewTimespan model timespan hue dragState =
     , style "height" "100%"
     , style "padding" "5px"
     , style "box-sizing" "border-box"
-    , style "background-color" (hsl hue "90%")
+    , style "background-color" (hsl hue "60%")
+    , style "opacity" "0.5"
     , style "cursor" cursor
     ]
     [ inlineEdit model (EditTimespan timespan.id) timespan.title
