@@ -42,7 +42,8 @@ type alias Model =
   , timelines : Timelines
   , timespans : Timespans
   , dragState : DragState -- transient
-  , editState : EditState -- transient
+  , editState : Target -- transient
+  , selection : Target -- transient
   , nextId : Id
   }
 
@@ -72,7 +73,7 @@ type alias Timespan =
 type DragState
   = DragTimespan Id TimespanMode Point -- timespan id, mode, last point
   | DrawRect Id Point Size -- timeline id, start point, width/height
-  | None
+  | NoDrag
 
 
 type TimespanMode
@@ -81,10 +82,10 @@ type TimespanMode
   | MoveEnd
 
 
-type EditState
-  = EditTimeline Id
-  | EditTimespan Id
-  | EditNone
+type Target
+  = TimelineTarget Id
+  | TimespanTarget Id
+  | NoTarget
 
 
 type alias Point =
@@ -106,11 +107,18 @@ type alias Hue = Int
 
 type Msg
   = AddTimeline
-  | EditStart EditState
+  | EditStart Target
   | EditEnd String
   | DragStart Point Class Id
   | Drag Point
   | DragEnd
+
+
+conf =
+  { beginYear = 1980
+  , endYear = 2025
+  , pixelPerYear = 64
+  }
 
 
 defaultModel : Model
@@ -130,16 +138,10 @@ defaultModel =
       , (5, Timespan 5 "Marina" 500 600)
       ]
     )
-    None
-    EditNone
+    NoDrag
+    NoTarget
+    NoTarget
     100
-
-
-conf =
-  { beginYear = 1980
-  , endYear = 2025
-  , pixelPerYear = 64
-  }
 
 
 init : E.Value -> ( Model, Cmd Msg )
@@ -177,7 +179,7 @@ update msg model =
     EditEnd title ->
       let
         newModel_ = updateTitle model title
-        newModel = { newModel_ | editState = EditNone }
+        newModel = { newModel_ | editState = NoTarget }
       in
       ( newModel, encode newModel |> store )
     DragStart p class id -> ( dragStart model class id p, Cmd.none )
@@ -197,7 +199,7 @@ addTimeline model =
     { model
       | timelines = model.timelines |> Dict.insert id
         ( Timeline id "New Timeline" 0 [] ) -- TODO: color
-      , editState = EditTimeline id
+      , editState = TimelineTarget id
       , nextId = id + 1
     }
 
@@ -209,7 +211,7 @@ dragStart model class id p =
     "tl-resizer-left"  -> DragTimespan id MoveBegin p
     "tl-resizer-right" -> DragTimespan id MoveEnd p
     "tl-timeline" -> DrawRect id p (Size 0 0)
-    _ -> None
+    _ -> NoDrag
   }
 
 
@@ -230,8 +232,8 @@ drag model p =
         h = p.y - startPoint.y
       in
       { model | dragState = DrawRect id startPoint (Size w h) }
-    None ->
-      logError "Received Drag when DragState is None" "update" model
+    NoDrag ->
+      logError "Received Drag when dragState is NoDrag" "update" model
 
 
 dragEnd : Model -> Model
@@ -246,11 +248,11 @@ dragEnd model =
       { model
         | timelines = updateTimeline model tlId tsId
         , timespans = insertNewTimespan model tsId begin end
-        , dragState = None
-        , editState = EditTimespan tsId
+        , dragState = NoDrag
+        , editState = TimespanTarget tsId
         , nextId = model.nextId + 1
       }
-    _ -> { model | dragState = None }
+    _ -> { model | dragState = NoDrag }
 
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
@@ -294,7 +296,7 @@ insertNewTimespan model tsId begin end =
 updateTitle : Model -> String -> Model
 updateTitle model title =
   case model.editState of
-    EditTimeline id ->
+    TimelineTarget id ->
       { model | timelines = model.timelines |>
         Dict.update id
           (\tl -> case tl of
@@ -302,7 +304,7 @@ updateTitle model title =
             Nothing -> illegalTimelineId id "updateTitle" Nothing
           )
       }
-    EditTimespan id ->
+    TimespanTarget id ->
       { model | timespans = model.timespans |>
         Dict.update id
           (\ts -> case ts of
@@ -310,7 +312,8 @@ updateTitle model title =
             Nothing -> illegalTimespanId id "updateTitle" Nothing
           )
       }
-    EditNone -> logError "called when edit mode is EditNone" "updateTitle" model
+    NoTarget -> logError "called when editState is NoTarget" "updateTitle" model
+
 
 
 -- SUBSCRIPTIONS
@@ -319,7 +322,7 @@ updateTitle model title =
 subscriptions : Model -> Sub Msg
 subscriptions model =
   case model.dragState of
-    None ->
+    NoDrag ->
       E.onMouseDown <| D.map3 DragStart
         ( D.map2 Point
           ( D.field "clientX" D.int )
@@ -358,7 +361,7 @@ view model =
   let
     userSelect =
       case model.dragState of
-        None -> "auto"
+        NoDrag -> "auto"
         _ -> "none"
   in
   div
@@ -430,13 +433,15 @@ viewTimelineHeader : Timeline -> Model -> Html Msg
 viewTimelineHeader timeline model =
   div
     [ style "background-color" (hsl timeline.color "95%")
+    , style "font-size" "14px"
+    , style "font-weight" "bold"
     , style "width" "150px"
     , style "height" "60px"
     , style "margin-top" "5px"
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     ]
-    [ inlineEdit model (EditTimeline timeline.id) timeline.title ]
+    [ inlineEdit model (TimelineTarget timeline.id) timeline.title ]
 
 
 viewTimeline : Timeline -> Model -> Html Msg
@@ -482,7 +487,7 @@ viewTimespan model timespan hue dragState =
     , style "opacity" "0.5"
     , style "cursor" cursor
     ]
-    [ inlineEdit model (EditTimespan timespan.id) timespan.title
+    [ inlineEdit model (TimespanTarget timespan.id) timespan.title
     , viewResizer timespan.id "left"
     , viewResizer timespan.id "right"
     ]
@@ -523,13 +528,13 @@ viewRectangle model =
     _ -> text ""
 
 
-inlineEdit : Model -> EditState -> String -> Html Msg
+inlineEdit : Model -> Target -> String -> Html Msg
 inlineEdit model editState title =
   let
     id_ = case editState of
-      EditTimeline id -> Just id
-      EditTimespan id -> Just id
-      EditNone -> Nothing
+      TimelineTarget id -> Just id
+      TimespanTarget id -> Just id
+      NoTarget -> Nothing
   in
   case id_ of
     Just id ->
@@ -549,7 +554,7 @@ inlineEdit model editState title =
           else
             text title
         ]
-    Nothing -> logError "called when edit mode is EditNone" "inlineEdit" (text "")
+    Nothing -> logError "called when editState is NoTarget" "inlineEdit" (text "")
 
 
 onEnter : (String -> Msg) -> Attribute Msg
@@ -569,9 +574,9 @@ onEnter msg =
 isEditMode : Model -> Id -> Bool
 isEditMode model id =
   case model.editState of
-    EditTimeline id_ -> id_ == id
-    EditTimespan id_ -> id_ == id
-    EditNone -> False
+    TimelineTarget id_ -> id_ == id
+    TimespanTarget id_ -> id_ == id
+    NoTarget -> False
 
 
 
@@ -609,7 +614,7 @@ encode model =
 
 
 decoder : D.Decoder Model
-decoder = D.map6 Model
+decoder = D.map7 Model
   (D.field "title" D.string)
   (D.field "timelines"
     (D.dict
@@ -631,8 +636,9 @@ decoder = D.map6 Model
       ) |> D.andThen strToIntDictDecoder
     )
   )
-  (D.succeed None)
-  (D.succeed EditNone)
+  (D.succeed NoDrag)
+  (D.succeed NoTarget)
+  (D.succeed NoTarget)
   (D.field "nextId" D.int)
 
 
