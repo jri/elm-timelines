@@ -71,9 +71,10 @@ type alias Timespan =
 
 
 type DragState
-  = DragTimespan Id TimespanMode Point -- timespan id, mode, last point
+  = NoDrag
+  | Engaged Point Class Id
+  | DragTimespan Id TimespanMode Point -- timespan id, mode, last point
   | DrawRect Id Point Size -- timeline id, start point, width/height
-  | NoDrag
 
 
 type TimespanMode
@@ -109,9 +110,9 @@ type Msg
   = AddTimeline
   | EditStart Target
   | EditEnd String
-  | DragStart Point Class Id
-  | Drag Point
-  | DragEnd
+  | MouseDown Point Class Id
+  | MouseMove Point
+  | MouseUp
 
 
 conf =
@@ -164,7 +165,7 @@ init flags =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  {--
+  {--}
   let
     _ = log "UPDATE" msg
   in
@@ -175,18 +176,18 @@ update msg model =
         newModel = addTimeline model
       in
       ( newModel, encode newModel |> store )
-    EditStart editState -> ( {model | editState = editState}, Cmd.none )
+    EditStart editState -> ( { model | editState = editState }, Cmd.none )
     EditEnd title ->
       let
         newModel_ = updateTitle model title
         newModel = { newModel_ | editState = NoTarget }
       in
       ( newModel, encode newModel |> store )
-    DragStart p class id -> ( dragStart model class id p, Cmd.none )
-    Drag p -> ( drag model p, Cmd.none )
-    DragEnd ->
+    MouseDown p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
+    MouseMove p -> ( mouseMove model p, Cmd.none )
+    MouseUp ->
       let
-        newModel = dragEnd model
+        newModel = mouseUp model
       in
       ( newModel, encode newModel |> store )
 
@@ -204,19 +205,29 @@ addTimeline model =
     }
 
 
-dragStart : Model -> Class -> Id -> Point -> Model
-dragStart model class id p =
-  { model | dragState = case class of
-    "tl-timespan"      -> DragTimespan id MoveTimespan p
-    "tl-resizer-left"  -> DragTimespan id MoveBegin p
-    "tl-resizer-right" -> DragTimespan id MoveEnd p
-    "tl-timeline" -> DrawRect id p (Size 0 0)
-    _ -> NoDrag
-  }
+mouseMove : Model -> Point -> Model
+mouseMove model p =
+  case model.dragState of
+    Engaged p_ class id ->
+      let
+        dragState = case class of
+          "tl-timespan"      -> DragTimespan id MoveTimespan p_
+          "tl-resizer-left"  -> DragTimespan id MoveBegin p_
+          "tl-resizer-right" -> DragTimespan id MoveEnd p_
+          "tl-timeline" -> DrawRect id p_ (Size 0 0)
+          _ -> NoDrag
+      in
+      performDrag { model | dragState = dragState } p
+    DragTimespan _ _ _ ->
+      performDrag model p
+    DrawRect _ _ _ ->
+      performDrag model p
+    NoDrag ->
+      logError "mouseMove" "Received MouseMove message when dragState is NoDrag" model
 
 
-drag : Model -> Point -> Model
-drag model p =
+performDrag : Model -> Point -> Model
+performDrag model p =
   case model.dragState of
     DragTimespan id mode lastPoint ->
       let
@@ -231,13 +242,15 @@ drag model p =
         w = p.x - startPoint.x
         h = p.y - startPoint.y
       in
-      { model | dragState = DrawRect id startPoint (Size w h) }
+      { model | dragState = DrawRect id startPoint (Size w h) } -- update size
+    Engaged _ _ _ ->
+      logError "performDrag" "Received MouseMove message when dragState is Engaged" model
     NoDrag ->
-      logError "Received Drag when dragState is NoDrag" "update" model
+      logError "performDrag" "Received MouseMove message when dragState is NoDrag" model
 
 
-dragEnd : Model -> Model
-dragEnd model =
+mouseUp : Model -> Model
+mouseUp model =
   case model.dragState of
     DrawRect tlId point size ->
       let
@@ -271,7 +284,7 @@ updateTimespan model id delta mode =
             { timespan | begin = timespan.begin + delta }
           MoveEnd ->
             { timespan | end = timespan.end + delta }
-      Nothing -> illegalTimespanId id "updateTimespan" Nothing
+      Nothing -> illegalTimespanId "updateTimespan" id Nothing
     )
     model.timespans
 
@@ -282,7 +295,7 @@ updateTimeline model tlId tsId =
     tlId
     (\tl -> case tl of
       Just timeline -> Just { timeline | tsIds = tsId :: timeline.tsIds }
-      Nothing -> illegalTimelineId tlId "updateTimeline" Nothing
+      Nothing -> illegalTimelineId "updateTimeline" tlId Nothing
     )
     model.timelines
 
@@ -301,7 +314,7 @@ updateTitle model title =
         Dict.update id
           (\tl -> case tl of
             Just timeline -> Just { timeline | title = title }
-            Nothing -> illegalTimelineId id "updateTitle" Nothing
+            Nothing -> illegalTimelineId "updateTitle" id Nothing
           )
       }
     TimespanTarget id ->
@@ -309,10 +322,10 @@ updateTitle model title =
         Dict.update id
           (\ts -> case ts of
             Just timespan -> Just { timespan | title = title }
-            Nothing -> illegalTimespanId id "updateTitle" Nothing
+            Nothing -> illegalTimespanId "updateTitle" id Nothing
           )
       }
-    NoTarget -> logError "called when editState is NoTarget" "updateTitle" model
+    NoTarget -> logError "updateTitle" "called when editState is NoTarget" model
 
 
 
@@ -322,16 +335,33 @@ updateTitle model title =
 subscriptions : Model -> Sub Msg
 subscriptions model =
   case model.dragState of
-    NoDrag ->
-      E.onMouseDown <| D.map3 DragStart
-        ( D.map2 Point
-          ( D.field "clientX" D.int )
-          ( D.field "clientY" D.int )
-        )
-        ( D.at ["target", "className"] D.string )
-        ( D.at ["target", "dataset", "id"] D.string |> D.andThen strToIntDecoder )
+    NoDrag -> mouseDownSub
+    Engaged _ _ _ -> dragSub
     DragTimespan _ _ _ -> dragSub
     DrawRect _ _ _ -> dragSub
+
+
+mouseDownSub : Sub Msg
+mouseDownSub =
+  E.onMouseDown <| D.map3 MouseDown
+    ( D.map2 Point
+      ( D.field "clientX" D.int )
+      ( D.field "clientY" D.int )
+    )
+    ( D.at ["target", "className"] D.string )
+    ( D.at ["target", "dataset", "id"] D.string |> D.andThen strToIntDecoder )
+
+
+dragSub : Sub Msg
+dragSub =
+  Sub.batch
+    [ E.onMouseMove <| D.map MouseMove
+      ( D.map2 Point
+        ( D.field "clientX" D.int )
+        ( D.field "clientY" D.int )
+      )
+    , E.onMouseUp (D.succeed MouseUp)
+    ]
 
 
 strToIntDecoder : String -> D.Decoder Int
@@ -339,17 +369,6 @@ strToIntDecoder str =
   case String.toInt str of
     Just int -> D.succeed int
     Nothing -> D.fail <| "\"" ++ str ++ "\" is an invalid Timespan ID"
-
-
-dragSub : Sub Msg
-dragSub = Sub.batch
-  [ E.onMouseMove <| D.map Drag
-    ( D.map2 Point
-      ( D.field "clientX" D.int )
-      ( D.field "clientY" D.int )
-    )
-  , E.onMouseUp (D.succeed DragEnd)
-  ]
 
 
 
@@ -459,7 +478,7 @@ viewTimeline timeline model =
       ( \tsId ->
         case Dict.get tsId model.timespans of
           Just timespan -> viewTimespan model timespan timeline.color model.dragState
-          Nothing -> illegalTimespanId tsId "viewTimeline" text ""
+          Nothing -> illegalTimespanId "viewTimeline" tsId text ""
       )
       timeline.tsIds
     )
@@ -554,7 +573,7 @@ inlineEdit model editState title =
           else
             text title
         ]
-    Nothing -> logError "called when editState is NoTarget" "inlineEdit" (text "")
+    Nothing -> logError "inlineEdit" "called when editState is NoTarget" (text "")
 
 
 onEnter : (String -> Msg) -> Attribute Msg
@@ -672,16 +691,16 @@ hsl hue lightness =
   "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
 
-illegalTimespanId : Int -> String -> a -> a
-illegalTimespanId id func val =
-  logError (String.fromInt id ++ " is an illegal Timespan ID") func val
+illegalTimespanId : String -> Int -> a -> a
+illegalTimespanId func id val =
+  logError func (String.fromInt id ++ " is an illegal Timespan ID") val
 
 
-illegalTimelineId : Int -> String -> a -> a
-illegalTimelineId id func val =
-  logError (String.fromInt id ++ " is an illegal Timeline ID") func val
+illegalTimelineId : String -> Int -> a -> a
+illegalTimelineId func id val =
+  logError func (String.fromInt id ++ " is an illegal Timeline ID") val
 
 
 logError : String -> String -> a -> a
-logError text func val =
+logError func text val =
   log ("ERROR in " ++ func ++ ": " ++ text) val
