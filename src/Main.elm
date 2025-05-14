@@ -3,7 +3,7 @@ port module Main exposing (..)
 import Browser
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
-import Html.Attributes exposing (class, attribute, style, value)
+import Html.Attributes exposing (class, attribute, style, value, disabled)
 import Html.Events exposing (onClick, on, keyCode, targetValue)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
@@ -114,6 +114,7 @@ type Msg
   | MouseDown Point Class Id
   | MouseMove Point
   | MouseUp
+  | Delete
 
 
 conf =
@@ -169,7 +170,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   {--}
   let
-    _ = log "UPDATE" msg
+    _ = log "update" msg
   in
   --}
   case msg of
@@ -191,6 +192,11 @@ update msg model =
     MouseUp ->
       let
         newModel = mouseUp model
+      in
+      ( newModel, encode newModel |> store )
+    Delete ->
+      let
+        newModel = delete model
       in
       ( newModel, encode newModel |> store )
 
@@ -331,6 +337,60 @@ updateTitle model title =
     NoTarget -> logError "updateTitle" "called when editState is NoTarget" model
 
 
+delete : Model -> Model
+delete model =
+  case model.selection of
+    TimelineTarget id ->
+      case model.timelines |> Dict.get id of
+        Just timeline ->
+          { model
+            | timelines = model.timelines |> Dict.remove id
+            , timespans = model.timespans |> Dict.filter
+                (\tsId timespan -> not (List.member tsId timeline.tsIds))
+            , selection = NoTarget
+          }
+        Nothing -> illegalTimelineId "delete" id model
+    TimespanTarget id ->
+      case model.timespans |> Dict.get id of
+        Just timespan ->
+          { model
+            | timelines = removeFromTimeline model id
+            , timespans = model.timespans |> Dict.remove id
+            , selection = NoTarget
+          }
+        Nothing -> illegalTimespanId "delete" id model
+    NoTarget -> logError "delete" "called when \"selection\" state is NoTarget" model
+
+
+removeFromTimeline : Model -> Id -> Timelines
+removeFromTimeline model tsId =
+  case findTimelineOfTimespan model tsId of
+    Just tlId ->
+      model.timelines |> Dict.update tlId
+        (\tl -> case tl of
+          Just timeline -> Just
+            { timeline | tsIds = timeline.tsIds
+              |> List.filter (\tsId_ -> tsId_ /= tsId)
+            }
+          Nothing -> Nothing -- error logged already
+        )
+    Nothing -> model.timelines -- error logged already
+
+
+findTimelineOfTimespan : Model -> Id -> Maybe Id
+findTimelineOfTimespan model tsId =
+  let
+    timelines = model.timelines |> Dict.values |> List.filter
+      (\timeline -> List.member tsId timeline.tsIds)
+  in
+  case timelines of
+    [timeline] -> Just timeline.id
+    [] -> logError "findTimelineOfTimespan"
+      ("timespan " ++ String.fromInt tsId ++ " not in any timeline") Nothing
+    _ -> logError "findTimelineOfTimespan"
+      ("timespan " ++ String.fromInt tsId ++ " in more than one timeline") Nothing
+
+
 
 -- SUBSCRIPTIONS
 
@@ -409,7 +469,7 @@ view model =
           )
         ]
       ]
-    , viewToolbar
+    , viewToolbar model
     , viewRectangle model
     ]
 
@@ -442,13 +502,25 @@ viewTimeScale =
     )
 
 
-viewToolbar : Html Msg
-viewToolbar =
+viewToolbar : Model -> Html Msg
+viewToolbar model =
+  let
+    disabled_ =
+      case model.selection of
+        NoTarget -> True
+        _ -> False
+  in
   div
     [ style "margin-top" "26px" ]
     [ button
       [ onClick AddTimeline ]
       [ text "Add Timeline"]
+    , button
+      [ onClick Delete
+      , disabled disabled_
+      , style "margin-left" "26px"
+      ]
+      [ text "Delete"]
     ]
 
 viewTimelineHeader : Model -> Timeline -> Html Msg
@@ -465,7 +537,7 @@ viewTimelineHeader model timeline =
     , style "width" "150px"
     , style "height" "60px"
     , style "margin-top" "5px"
-    , style "padding" "5px"
+    , style "padding" "5px 6px"
     , style "box-sizing" "border-box"
     ]
     [ inlineEdit model target timeline.title ]
@@ -501,7 +573,7 @@ viewTimespan model timespan hue dragState =
         DragTimespan _ _ _ -> "grabbing"
         _ -> "grab"
   in
-  div -- don't appy opacity to the selection border
+  div -- don't appy opacity to the selection border -> 2 nested divs
     [ selectionBorder model timespan.id
     , style "position" "absolute"
     , style "top" "0"
@@ -515,7 +587,7 @@ viewTimespan model timespan hue dragState =
       , class "tl-timespan"
       , attribute "data-id" (String.fromInt timespan.id)
       , style "height" "100%"
-      , style "padding" "5px"
+      , style "padding" "5px 6px"
       , style "box-sizing" "border-box"
       , style "background-color" (hsl hue "60%")
       , style "opacity" "0.5"
