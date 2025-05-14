@@ -108,6 +108,7 @@ type alias Hue = Int
 
 type Msg
   = AddTimeline
+  | Select Target
   | EditStart Target
   | EditEnd String
   | MouseDown Point Class Id
@@ -119,6 +120,7 @@ conf =
   { beginYear = 1980
   , endYear = 2025
   , pixelPerYear = 64
+  , selectionColor = "#007AFF" -- Firefox focus color
   }
 
 
@@ -176,7 +178,8 @@ update msg model =
         newModel = addTimeline model
       in
       ( newModel, encode newModel |> store )
-    EditStart editState -> ( { model | editState = editState }, Cmd.none )
+    Select target -> ( { model | selection = target }, Cmd.none )
+    EditStart target -> ( { model | editState = target }, Cmd.none )
     EditEnd title ->
       let
         newModel_ = updateTitle model title
@@ -395,14 +398,14 @@ view model =
       [ div
         [ style "margin-top" "30px" ]
         ( Dict.values model.timelines |>
-            List.map ( \timeline -> viewTimelineHeader timeline model )
+            List.map ( \timeline -> viewTimelineHeader model timeline )
         )
       , div
         [ style "overflow" "auto" ]
         [ viewTimeScale
         , div []
           ( Dict.values model.timelines |>
-              List.map ( \timeline -> viewTimeline timeline model )
+              List.map ( \timeline -> viewTimeline model timeline )
           )
         ]
       ]
@@ -448,10 +451,15 @@ viewToolbar =
       [ text "Add Timeline"]
     ]
 
-viewTimelineHeader : Timeline -> Model -> Html Msg
-viewTimelineHeader timeline model =
+viewTimelineHeader : Model -> Timeline -> Html Msg
+viewTimelineHeader model timeline =
+  let
+    target = TimelineTarget timeline.id
+  in
   div
-    [ style "background-color" (hsl timeline.color "95%")
+    [ onClick (Select target)
+    , selectionBorder model timeline.id
+    , style "background-color" (hsl timeline.color "95%")
     , style "font-size" "14px"
     , style "font-weight" "bold"
     , style "width" "150px"
@@ -460,11 +468,11 @@ viewTimelineHeader timeline model =
     , style "padding" "5px"
     , style "box-sizing" "border-box"
     ]
-    [ inlineEdit model (TimelineTarget timeline.id) timeline.title ]
+    [ inlineEdit model target timeline.title ]
 
 
-viewTimeline : Timeline -> Model -> Html Msg
-viewTimeline timeline model =
+viewTimeline : Model -> Timeline -> Html Msg
+viewTimeline model timeline =
   div
     [ class "tl-timeline"
     , attribute "data-id" (String.fromInt timeline.id)
@@ -487,13 +495,16 @@ viewTimeline timeline model =
 viewTimespan : Model -> Timespan -> Hue -> DragState -> Html Msg
 viewTimespan model timespan hue dragState =
   let
+    target = TimespanTarget timespan.id
     cursor =
       case dragState of
         DragTimespan _ _ _ -> "grabbing"
         _ -> "grab"
   in
   div
-    [ class "tl-timespan"
+    [ onClick (Select target)
+    , selectionBorder model timespan.id
+    , class "tl-timespan"
     , attribute "data-id" (String.fromInt timespan.id)
     , style "position" "absolute"
     , style "top" "0"
@@ -506,7 +517,7 @@ viewTimespan model timespan hue dragState =
     , style "opacity" "0.5"
     , style "cursor" cursor
     ]
-    [ inlineEdit model (TimespanTarget timespan.id) timespan.title
+    [ inlineEdit model target timespan.title
     , viewResizer timespan.id "left"
     , viewResizer timespan.id "right"
     ]
@@ -548,9 +559,9 @@ viewRectangle model =
 
 
 inlineEdit : Model -> Target -> String -> Html Msg
-inlineEdit model editState title =
+inlineEdit model target title =
   let
-    id_ = case editState of
+    id_ = case target of
       TimelineTarget id -> Just id
       TimespanTarget id -> Just id
       NoTarget -> Nothing
@@ -558,22 +569,24 @@ inlineEdit model editState title =
   case id_ of
     Just id ->
       div
-        [ onClick (EditStart editState) ]
-        [ if isEditMode model id then
+        [ onClick (EditStart target) ]
+        [ if isActive model .editState id then
             input
               [ value title
               , style "position" "relative"
-              , style "top" "-6px"
+              , style "top" "-3px"
               , style "left" "-4px"
               , style "width" "130px"
-              , style "font-size" "16px"
+              , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
+              , style "font-size" "14px"
+              , style "font-weight" "bold"
               , onEnter EditEnd
               ]
               []
           else
             text title
         ]
-    Nothing -> logError "inlineEdit" "called when editState is NoTarget" (text "")
+    Nothing -> logError "inlineEdit" "called when target is NoTarget" (text "")
 
 
 onEnter : (String -> Msg) -> Attribute Msg
@@ -590,9 +603,20 @@ onEnter msg =
     on "keydown" (keyCode |> D.andThen isEnter |> D.andThen readValue)
 
 
-isEditMode : Model -> Id -> Bool
-isEditMode model id =
-  case model.editState of
+selectionBorder : Model -> Id -> Attribute Msg
+selectionBorder model id =
+  style "border"
+    ( "2px solid " ++
+      if isActive model .selection id then
+        conf.selectionColor
+      else
+        "transparent"
+    )
+
+
+isActive : Model -> (Model -> Target) -> Id -> Bool
+isActive model targetFunc id =
+  case targetFunc model of
     TimelineTarget id_ -> id_ == id
     TimespanTarget id_ -> id_ == id
     NoTarget -> False
