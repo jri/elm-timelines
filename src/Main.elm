@@ -501,25 +501,30 @@ viewTimespan model timespan hue dragState =
         DragTimespan _ _ _ -> "grabbing"
         _ -> "grab"
   in
-  div
-    [ onClick (Select target)
-    , selectionBorder model timespan.id
-    , class "tl-timespan"
-    , attribute "data-id" (String.fromInt timespan.id)
+  div -- don't appy opacity to the selection border
+    [ selectionBorder model timespan.id
     , style "position" "absolute"
     , style "top" "0"
     , style "left" (String.fromInt timespan.begin ++ "px")
     , style "width" (String.fromInt (timespan.end - timespan.begin) ++ "px")
     , style "height" "100%"
-    , style "padding" "5px"
     , style "box-sizing" "border-box"
-    , style "background-color" (hsl hue "60%")
-    , style "opacity" "0.5"
-    , style "cursor" cursor
     ]
-    [ inlineEdit model target timespan.title
-    , viewResizer timespan.id "left"
-    , viewResizer timespan.id "right"
+    [ div
+      [ onClick (Select target)
+      , class "tl-timespan"
+      , attribute "data-id" (String.fromInt timespan.id)
+      , style "height" "100%"
+      , style "padding" "5px"
+      , style "box-sizing" "border-box"
+      , style "background-color" (hsl hue "60%")
+      , style "opacity" "0.5"
+      , style "cursor" cursor
+      ]
+      [ inlineEdit model target timespan.title
+      , viewResizer timespan.id "left"
+      , viewResizer timespan.id "right"
+      ]
     ]
 
 
