@@ -566,31 +566,30 @@ viewRectangle model =
 inlineEdit : Model -> Target -> String -> Html Msg
 inlineEdit model target title =
   let
-    id_ = case target of
-      TimelineTarget id -> Just id
-      TimespanTarget id -> Just id
-      NoTarget -> Nothing
+    v = case target of
+      TimelineTarget id -> { id = Just id, fs = "14px", fw = "bold" }
+      TimespanTarget id -> { id = Just id, fs = "16px", fw = "normal" }
+      NoTarget -> { id = Nothing, fs = "", fw = "" }
   in
-  case id_ of
+  case v.id of
     Just id ->
-      div
-        [ onClick (EditStart target) ]
-        [ if isActive model .editState id then
-            input
-              [ value title
-              , style "position" "relative"
-              , style "top" "-3px"
-              , style "left" "-4px"
-              , style "width" "130px"
-              , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
-              , style "font-size" "14px"
-              , style "font-weight" "bold"
-              , onEnter EditEnd
-              ]
-              []
-          else
-            text title
-        ]
+      if isActive model .editState id then
+        input
+          [ value title
+          , style "position" "relative"
+          , style "top" "-3px"
+          , style "left" "-4px"
+          , style "width" "130px"
+          , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
+          , style "font-size" v.fs
+          , style "font-weight" v.fw
+          , onEnter EditEnd
+          ]
+          []
+      else
+        div
+          [ onClick (EditStart target) ]
+          [ text title ]
     Nothing -> logError "inlineEdit" "called when target is NoTarget" (text "")
 
 
