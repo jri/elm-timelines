@@ -1,15 +1,17 @@
 port module Main exposing (..)
 
 import Browser
+import Browser.Dom as Dom
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
-import Html.Attributes exposing (class, attribute, style, value, disabled)
+import Html.Attributes exposing (class, id, attribute, style, value, disabled)
 import Html.Events exposing (onClick, on, keyCode, targetValue)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
 import Json.Decode as D
 import Json.Encode as E
+import Task
 import Debug exposing (log)
 
 
@@ -108,6 +110,7 @@ type alias Hue = Int
 
 type Msg
   = AddTimeline
+  | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- timeline id
   | Select Target
   | EditStart Target
   | EditEnd String
@@ -179,6 +182,11 @@ update msg model =
         newModel = addTimeline model
       in
       ( newModel, encode newModel |> store )
+    AddTimespan tlId point size result ->
+      let
+        newModel = addTimespan model tlId point size result
+      in
+      ( newModel, encode newModel |> store )
     Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> ( { model | editState = target }, Cmd.none )
     EditEnd title ->
@@ -189,11 +197,7 @@ update msg model =
       ( newModel, encode newModel |> store )
     MouseDown p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
-    MouseUp ->
-      let
-        newModel = mouseUp model
-      in
-      ( newModel, encode newModel |> store )
+    MouseUp -> mouseUp model
     Delete ->
       let
         newModel = delete model
@@ -212,6 +216,24 @@ addTimeline model =
       , editState = TimelineTarget id
       , nextId = id + 1
     }
+
+
+addTimespan : Model -> Id -> Point -> Size -> Result Dom.Error Dom.Element -> Model
+addTimespan model tlId point size result =
+  case result of
+    Ok element ->
+      let
+        tsId = model.nextId
+        begin = point.x - round element.element.x
+        end = begin + size.width
+      in
+      { model
+        | timelines = updateTimeline model tlId tsId
+        , timespans = insertNewTimespan model tsId begin end
+        , editState = TimespanTarget tsId
+        , nextId = model.nextId + 1
+      }
+    Err (Dom.NotFound e) -> logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") model
 
 
 mouseMove : Model -> Point -> Model
@@ -258,23 +280,14 @@ performDrag model p =
       logError "performDrag" "Received MouseMove message when dragState is NoDrag" model
 
 
-mouseUp : Model -> Model
+mouseUp : Model -> ( Model, Cmd Msg )
 mouseUp model =
-  case model.dragState of
-    DrawRect tlId point size ->
-      let
-        tsId = model.nextId
-        begin = point.x - 150 - 18 -- width-margin-padding -- TODO
-        end = begin + size.width
-      in
-      { model
-        | timelines = updateTimeline model tlId tsId
-        , timespans = insertNewTimespan model tsId begin end
-        , dragState = NoDrag
-        , editState = TimespanTarget tsId
-        , nextId = model.nextId + 1
-      }
-    _ -> { model | dragState = NoDrag }
+  ( { model | dragState = NoDrag }
+  , case model.dragState of
+      DrawRect tlId point size ->
+        Task.attempt (AddTimespan tlId point size) (Dom.getElement "tl-timelines")
+      _ -> Cmd.none
+  )
 
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
@@ -463,7 +476,8 @@ view model =
       , div
         [ style "overflow" "auto" ]
         [ viewTimeScale
-        , div []
+        , div
+          [ id "tl-timelines" ]
           ( Dict.values model.timelines |>
               List.map ( \timeline -> viewTimeline model timeline )
           )
@@ -522,6 +536,7 @@ viewToolbar model =
       ]
       [ text "Delete"]
     ]
+
 
 viewTimelineHeader : Model -> Timeline -> Html Msg
 viewTimelineHeader model timeline =
