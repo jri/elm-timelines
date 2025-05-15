@@ -46,6 +46,7 @@ type alias Model =
   , dragState : DragState -- transient
   , editState : Target -- transient
   , selection : Target -- transient
+  , settings : Settings
   , nextId : Id
   }
 
@@ -108,6 +109,12 @@ type alias Id = Int
 type alias Hue = Int
 
 
+type alias Settings =
+  { beginYear : Int
+  , endYear : Int
+  }
+
+
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- timeline id
@@ -121,9 +128,7 @@ type Msg
 
 
 conf =
-  { beginYear = 1980
-  , endYear = 2025
-  , pixelPerYear = 64
+  { pixelPerYear = 64
   , selectionColor = "#007AFF" -- Firefox focus color
   }
 
@@ -148,6 +153,9 @@ defaultModel =
     NoDrag
     NoTarget
     NoTarget
+    { beginYear = 1985
+    , endYear = 2025
+    }
     100
 
 
@@ -221,10 +229,10 @@ addTimeline model =
 addTimespan : Model -> Id -> Point -> Size -> Result Dom.Error Dom.Element -> Model
 addTimespan model tlId point size result =
   case result of
-    Ok element ->
+    Ok timelinesDom ->
       let
         tsId = model.nextId
-        begin = point.x - round element.element.x
+        begin = point.x - round timelinesDom.element.x
         end = begin + size.width
       in
       { model
@@ -458,6 +466,7 @@ view model =
       case model.dragState of
         NoDrag -> "auto"
         _ -> "none"
+    width = String.fromInt (timelineWidth model) ++ "px"
   in
   div
     [ style "font-family" "sans-serif"
@@ -475,9 +484,11 @@ view model =
         )
       , div
         [ style "overflow" "auto" ]
-        [ viewTimeScale
+        [ viewTimeScale model
         , div
-          [ id "tl-timelines" ]
+          [ id "tl-timelines"
+          , style "width" width
+          ]
           ( Dict.values model.timelines |>
               List.map ( \timeline -> viewTimeline model timeline )
           )
@@ -488,20 +499,23 @@ view model =
     ]
 
 
-viewTimeScale : Html Msg
-viewTimeScale =
+viewTimeScale : Model -> Html Msg
+viewTimeScale model =
+  let
+    width_ = timelineWidth model |> String.fromInt
+  in
   svg
-    [ width "2000"
+    [ width width_
     , height "30"
-    , viewBox "0 0 2000 30"
+    , viewBox ("0 0 " ++ width_ ++ " 30")
     , style "font-size" "14px"
     , style "margin-bottom" "1px"
     -- , style "background-color" "beige"
     ]
-    ( List.range conf.beginYear conf.endYear |> List.map
+    ( List.range model.settings.beginYear model.settings.endYear |> List.map
       (\year ->
         let
-          x_ = (year - conf.beginYear) * conf.pixelPerYear
+          x_ = (year - model.settings.beginYear) * conf.pixelPerYear
           x1_ = x_ |> String.fromInt
           y1_ = "0"
           x2_ = x1_
@@ -514,6 +528,11 @@ viewTimeScale =
       )
       |> List.foldr (++) []
     )
+
+
+timelineWidth : Model -> Int
+timelineWidth model =
+  (model.settings.endYear - model.settings.beginYear + 1) * conf.pixelPerYear
 
 
 viewToolbar : Model -> Html Msg
@@ -743,12 +762,17 @@ encode model =
         )
         model.timespans
       )
+    , ("settings", E.object
+        [ ("beginYear", E.int model.settings.beginYear)
+        , ("endYear",   E.int model.settings.endYear)
+        ]
+      )
     , ("nextId", E.int model.nextId)
     ]
 
 
 decoder : D.Decoder Model
-decoder = D.map7 Model
+decoder = D.map8 Model
   (D.field "title" D.string)
   (D.field "timelines"
     (D.dict
@@ -773,6 +797,12 @@ decoder = D.map7 Model
   (D.succeed NoDrag)
   (D.succeed NoTarget)
   (D.succeed NoTarget)
+  (D.field "settings"
+    (D.map2 Settings
+      (D.field "beginYear" D.int)
+      (D.field "endYear"   D.int)
+    )
+  )
   (D.field "nextId" D.int)
 
 
