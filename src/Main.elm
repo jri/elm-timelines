@@ -9,6 +9,7 @@ import Html.Events exposing (onClick, onInput, on, stopPropagationOn, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
+import Array
 import Json.Decode as D
 import Json.Encode as E
 import Task
@@ -133,6 +134,8 @@ type Msg
 conf =
   { pixelPerYear = 64
   , selectionColor = "#007AFF" -- Firefox focus color
+  , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
+                               -- green, red, blue, orange, purple, yellow
   }
 
 
@@ -212,10 +215,14 @@ addTimeline : Model -> Model
 addTimeline model =
   let
     id = model.nextId
+    colorIndex = modBy (Array.length conf.timelineColors) (Dict.size model.timelines)
+    color = case Array.get colorIndex conf.timelineColors of
+      Just color_ -> color_
+      Nothing -> logError "addTimeline" "can't compute timeline color" 0
   in
     { model
       | timelines = model.timelines |> Dict.insert id
-        ( Timeline id "New Timeline" 0 [] ) -- TODO: color
+        ( Timeline id "New Timeline" color [] )
       , editState = TimelineTarget id
       , nextId = id + 1
     }
