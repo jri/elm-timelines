@@ -188,34 +188,24 @@ update msg model =
   in
   --}
   case msg of
-    AddTimeline ->
-      let
-        newModel = addTimeline model
-      in
-      ( newModel, encode newModel |> store )
+    AddTimeline -> addTimeline model |> updateAndStore
     AddTimespan tlId point size result ->
-      let
-        newModel = addTimespan model tlId point size result
-      in
-      ( newModel, encode newModel |> store )
+      addTimespan model tlId point size result |> updateAndStore
     Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> ( { model | editState = target }, Cmd.none )
-    Edit title ->
-      let
-        newModel = updateTitle model title
-      in
-      ( newModel, encode newModel |> store )
+    Edit title -> updateTitle model title |> updateAndStore
     EditEnd -> ( { model | editState = NoTarget }, Cmd.none )
     MouseDown -> ( reset model, Cmd.none )
-    MouseDownItem p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
+    MouseDownItem p class id -> ( mouseDownOnItem model p class id, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
-    Delete ->
-      let
-        newModel = delete model
-      in
-      ( newModel, encode newModel |> store )
+    Delete -> delete model |> updateAndStore
     NoOp -> ( model, Cmd.none )
+
+
+updateAndStore : Model -> ( Model, Cmd Msg )
+updateAndStore model =
+  ( model, encode model |> store )
 
 
 addTimeline : Model -> Model
@@ -248,6 +238,14 @@ addTimespan model tlId point size result =
         , nextId = model.nextId + 1
       }
     Err (Dom.NotFound e) -> logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") model
+
+
+mouseDownOnItem : Model -> Point -> Class -> Id -> Model
+mouseDownOnItem model p class id =
+  let
+    newModel = reset model
+  in
+  { newModel | dragState = Engaged p class id }
 
 
 mouseMove : Model -> Point -> Model
