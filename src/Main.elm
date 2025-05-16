@@ -5,7 +5,7 @@ import Browser.Dom as Dom
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
 import Html.Attributes exposing (class, id, attribute, style, value, disabled)
-import Html.Events exposing (onClick, on, keyCode, targetValue)
+import Html.Events exposing (onClick, onInput, on, stopPropagationOn, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
 import Dict exposing (Dict)
@@ -120,12 +120,14 @@ type Msg
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
   | Select Target
   | EditStart Target
-  | EditEnd String
+  | Edit String
+  | EditEnd
   | MouseDown -- mouse down somewhere
   | MouseDownItem Point Class Id -- mouse down on an item where a drag can be initiated
   | MouseMove Point
   | MouseUp
   | Delete
+  | NoOp
 
 
 conf =
@@ -198,12 +200,12 @@ update msg model =
       ( newModel, encode newModel |> store )
     Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> ( { model | editState = target }, Cmd.none )
-    EditEnd title ->
+    Edit title ->
       let
-        newModel_ = updateTitle model title
-        newModel = { newModel_ | editState = NoTarget }
+        newModel = updateTitle model title
       in
       ( newModel, encode newModel |> store )
+    EditEnd -> ( { model | editState = NoTarget }, Cmd.none )
     MouseDown -> ( reset model, Cmd.none )
     MouseDownItem p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
@@ -213,6 +215,7 @@ update msg model =
         newModel = delete model
       in
       ( newModel, encode newModel |> store )
+    NoOp -> ( model, Cmd.none )
 
 
 addTimeline : Model -> Model
@@ -295,9 +298,11 @@ mouseUp : Model -> ( Model, Cmd Msg )
 mouseUp model =
   ( { model | dragState = NoDrag }
   , case model.dragState of
+      NoDrag -> logError "mouseUp" "Received MouseUp when dragState is NoDrag" Cmd.none
+      Engaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
+      DragTimespan _ _ _ -> encode model |> store
       DrawRect tlId point size ->
         Task.attempt (AddTimespan tlId point size) (Dom.getElement "tl-timelines")
-      _ -> Cmd.none
   )
 
 
@@ -564,6 +569,7 @@ viewToolbar model =
       [ text "Add Timeline"]
     , button
       [ onClick Delete
+      , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
       , disabled disabled_
       , style "margin-left" "26px"
       ]
@@ -703,7 +709,9 @@ inlineEdit model target title =
           , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
           , style "font-size" v.fs
           , style "font-weight" v.fw
+          , onInput Edit
           , onEnter EditEnd
+          , stopPropagationOnMousedown
           ]
           []
       else
@@ -713,18 +721,21 @@ inlineEdit model target title =
     Nothing -> logError "inlineEdit" "called when target is NoTarget" (text "")
 
 
-onEnter : (String -> Msg) -> Attribute Msg
+onEnter : Msg -> Attribute Msg
 onEnter msg =
   let
     isEnter code =
       if code == 13 then
-        targetValue
+        D.succeed msg
       else
         D.fail "not ENTER"
-    readValue value =
-      D.succeed (msg value)
   in
-    on "keydown" (keyCode |> D.andThen isEnter |> D.andThen readValue)
+    on "keydown" (keyCode |> D.andThen isEnter)
+
+
+stopPropagationOnMousedown : Attribute Msg
+stopPropagationOnMousedown =
+  stopPropagationOn "mousedown" <| D.succeed (NoOp, True)
 
 
 selectionBorder : Model -> Id -> Attribute Msg
