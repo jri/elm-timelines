@@ -44,8 +44,8 @@ type alias Model =
   , timelines : Timelines
   , timespans : Timespans
   , dragState : DragState -- transient
-  , editState : Target -- transient
   , selection : Target -- transient
+  , editState : Target -- transient
   , settings : Settings
   , nextId : Id
   }
@@ -117,11 +117,12 @@ type alias Settings =
 
 type Msg
   = AddTimeline
-  | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- timeline id
+  | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
   | Select Target
   | EditStart Target
   | EditEnd String
-  | MouseDown Point Class Id
+  | MouseDown -- mouse down somewhere
+  | MouseDownItem Point Class Id -- mouse down on an item where a drag can be initiated
   | MouseMove Point
   | MouseUp
   | Delete
@@ -203,7 +204,8 @@ update msg model =
         newModel = { newModel_ | editState = NoTarget }
       in
       ( newModel, encode newModel |> store )
-    MouseDown p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
+    MouseDown -> ( reset model, Cmd.none )
+    MouseDownItem p class id -> ( { model | dragState = Engaged p class id }, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
     Delete ->
@@ -238,6 +240,7 @@ addTimespan model tlId point size result =
       { model
         | timelines = updateTimeline model tlId tsId
         , timespans = insertNewTimespan model tsId begin end
+        , selection = TimespanTarget tsId
         , editState = TimespanTarget tsId
         , nextId = model.nextId + 1
       }
@@ -412,6 +415,14 @@ findTimelineOfTimespan model tsId =
       ("timespan " ++ String.fromInt tsId ++ " in more than one timeline") Nothing
 
 
+reset : Model -> Model
+reset model =
+  { model
+  | selection = NoTarget
+  , editState = NoTarget
+  }
+
+
 
 -- SUBSCRIPTIONS
 
@@ -427,23 +438,26 @@ subscriptions model =
 
 mouseDownSub : Sub Msg
 mouseDownSub =
-  E.onMouseDown <| D.map3 MouseDown
-    ( D.map2 Point
-      ( D.field "clientX" D.int )
-      ( D.field "clientY" D.int )
-    )
-    ( D.at ["target", "className"] D.string )
-    ( D.at ["target", "dataset", "id"] D.string |> D.andThen strToIntDecoder )
+  E.onMouseDown <| D.oneOf
+    [ D.map3 MouseDownItem
+        ( D.map2 Point
+          ( D.field "clientX" D.int )
+          ( D.field "clientY" D.int )
+        )
+        ( D.at ["target", "className"] D.string )
+        ( D.at ["target", "dataset", "id"] D.string |> D.andThen strToIntDecoder )
+    , D.succeed MouseDown
+    ]
 
 
 dragSub : Sub Msg
 dragSub =
   Sub.batch
     [ E.onMouseMove <| D.map MouseMove
-      ( D.map2 Point
-        ( D.field "clientX" D.int )
-        ( D.field "clientY" D.int )
-      )
+        ( D.map2 Point
+          ( D.field "clientX" D.int )
+          ( D.field "clientY" D.int )
+        )
     , E.onMouseUp (D.succeed MouseUp)
     ]
 
