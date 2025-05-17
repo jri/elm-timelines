@@ -518,7 +518,17 @@ view model =
         )
       , div
         []
-        [ viewTimeScale model
+        [ div
+          [ style "position" "absolute"
+          , style "left" "20px" -- corresponds to top-level padding
+          , style "width" "150px" -- corresponds to timeline header width
+          , style "height" "30px" -- corresponds to timescale height
+          , style "z-index" "2"
+          , style "background-color" "white"
+          --, style "background" "repeating-linear-gradient(-45deg, cyan, white 20px)"
+          ]
+          []
+        , viewTimeScale model
         , div
           [ id "tl-timelines" ]
           ( Dict.values model.timelines |>
