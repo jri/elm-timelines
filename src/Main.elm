@@ -493,26 +493,34 @@ view model =
     width = String.fromInt (timelineWidth model) ++ "px"
   in
   div
-    [ style "font-family" "sans-serif"
+    [ style "display" "flex"
+    , style "flex-direction" "column"
+    , style "height" "100%"
+    , style "box-sizing" "border-box"
+    , style "font-family" "sans-serif"
     , style "font-size" "16px"
-    , style "margin" "20px"
+    , style "padding" "20px"
     , style "user-select" userSelect
     ]
     [ h1 [] [ text model.title ]
     , div
-      [ style "display" "flex" ]
+      [ style "display" "flex"
+      , style "overflow" "auto"
+      ]
       [ div
-        [ style "margin-top" "30px" ]
+        [ style "position" "sticky"
+        , style "left" "0"
+        , style "z-index" "1"
+        , style "margin-top" "30px"
+        ]
         ( Dict.values model.timelines |>
             List.map ( \timeline -> viewTimelineHeader model timeline )
         )
       , div
-        [ style "overflow" "auto" ]
+        []
         [ viewTimeScale model
         , div
-          [ id "tl-timelines"
-          , style "width" width
-          ]
+          [ id "tl-timelines" ]
           ( Dict.values model.timelines |>
               List.map ( \timeline -> viewTimeline model timeline )
           )
@@ -532,9 +540,12 @@ viewTimeScale model =
     [ width width_
     , height "30"
     , viewBox ("0 0 " ++ width_ ++ " 30")
+    , style "position" "sticky"
+    , style "top" "0"
+    , style "z-index" "1"
     , style "font-size" "14px"
     , style "margin-bottom" "1px"
-    -- , style "background-color" "beige"
+    , style "background-color" "white"
     ]
     ( List.range model.settings.beginYear model.settings.endYear |> List.map
       (\year ->
@@ -557,29 +568,6 @@ viewTimeScale model =
 timelineWidth : Model -> Int
 timelineWidth model =
   (model.settings.endYear - model.settings.beginYear + 1) * conf.pixelPerYear
-
-
-viewToolbar : Model -> Html Msg
-viewToolbar model =
-  let
-    disabled_ =
-      case model.selection of
-        NoTarget -> True
-        _ -> False
-  in
-  div
-    [ style "margin-top" "26px" ]
-    [ button
-      [ onClick AddTimeline ]
-      [ text "Add Timeline"]
-    , button
-      [ onClick Delete
-      , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
-      , disabled disabled_
-      , style "margin-left" "26px"
-      ]
-      [ text "Delete"]
-    ]
 
 
 viewTimelineHeader : Model -> Timeline -> Html Msg
@@ -675,6 +663,29 @@ viewResizer id pos =
     -- , style "opacity" "0.2"
     ]
     []
+
+
+viewToolbar : Model -> Html Msg
+viewToolbar model =
+  let
+    disabled_ =
+      case model.selection of
+        NoTarget -> True
+        _ -> False
+  in
+  div
+    [ style "margin-top" "26px" ]
+    [ button
+      [ onClick AddTimeline ]
+      [ text "Add Timeline"]
+    , button
+      [ onClick Delete
+      , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
+      , disabled disabled_
+      , style "margin-left" "26px"
+      ]
+      [ text "Delete"]
+    ]
 
 
 viewRectangle : Model -> Html Msg
