@@ -1,6 +1,8 @@
 port module Main exposing (..)
 
 import Model exposing (..)
+import Style exposing (..)
+
 import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
@@ -39,7 +41,6 @@ port store : E.Value -> Cmd msg
 
 conf =
   { pixelPerYear = 64
-  , selectionColor = "#007AFF" -- Firefox focus color
   , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
                                -- green, red, blue, orange, purple, yellow
   }
@@ -365,55 +366,31 @@ strToIntDecoder str =
 
 view : Model -> Html Msg
 view model =
-  let
-    userSelect =
-      case model.dragState of
-        NoDrag -> "auto"
-        _ -> "none"
-  in
   div
-    [ style "display" "flex"
-    , style "flex-direction" "column"
-    , style "height" "100%"
-    , style "box-sizing" "border-box"
-    , style "font-family" "sans-serif"
-    , style "font-size" "16px"
-    , style "padding" "20px"
-    , style "user-select" userSelect
-    ]
-    [ h1 [] [ text model.title ]
+    (appStyle model)
+    [ h1
+        []
+        [ text model.title ]
     , div
-      [ style "display" "flex"
-      , style "overflow" "auto"
-      ]
-      [ div
-        [ style "position" "absolute"
-        , style "width" "150px" -- corresponds to timeline header width
-        , style "height" "30px" -- corresponds to timescale height
-        , style "z-index" "2" -- place on top of horizontal/vertical sticky areas
-        , style "background-color" "white"
-        --, style "background" "repeating-linear-gradient(-45deg, cyan, white 20px)"
-        ]
-        []
-      , div
-        [ style "position" "sticky"
-        , style "left" "0"
-        , style "z-index" "1"
-        , style "margin-top" "30px" -- corresponds to timescale height
-        ]
-        ( Dict.values model.timelines |>
-            List.map ( \timeline -> viewTimelineHeader model timeline )
-        )
-      , div
-        []
-        [ viewTimeScale model
+        contentStyle
+        [ div
+            blinderStyle
+            []
         , div
-          [ id "tl-timelines" ]
-          ( Dict.values model.timelines |>
-              List.map ( \timeline -> viewTimeline model timeline )
-          )
+            timelineHeadersStyle
+            ( Dict.values model.timelines |>
+                List.map (\timeline -> viewTimelineHeader model timeline)
+            )
+        , div
+            []
+            [ viewTimeScale model
+            , div
+                [ id "tl-timelines" ]
+                ( Dict.values model.timelines |>
+                    List.map (\timeline -> viewTimeline model timeline)
+                )
+            ]
         ]
-      ]
     , viewToolbar model
     , viewRectangle model
     ]
@@ -425,17 +402,13 @@ viewTimeScale model =
     width_ = timelineWidth model |> String.fromInt
   in
   svg
-    [ width width_
-    , height "30"
-    , viewBox ("0 0 " ++ width_ ++ " 30")
-    , style "position" "sticky"
-    , style "top" "0"
-    , style "z-index" "1"
-    , style "font-size" "14px"
-    , style "margin-bottom" "1px"
-    , style "background-color" "white"
-    ]
-    ( List.range model.settings.beginYear model.settings.endYear |> List.map
+    ( [ width width_
+      , height "30"
+      , viewBox ("0 0 " ++ width_ ++ " 30")
+      ]
+      ++ timeScaleStyle
+    )
+    (List.range model.settings.beginYear model.settings.endYear |> List.map
       (\year ->
         let
           x_ = (year - model.settings.beginYear) * conf.pixelPerYear
@@ -464,70 +437,45 @@ viewTimelineHeader model timeline =
     target = TimelineTarget timeline.id
   in
   div
-    [ onClick (Select target)
-    , selectionBorder model timeline.id
-    , style "background-color" (hsl timeline.color "95%")
-    , style "font-size" "14px"
-    , style "font-weight" "bold"
-    , style "width" "150px"
-    , style "height" "60px"
-    , style "margin-top" "5px"
-    , style "padding" "5px 6px"
-    , style "box-sizing" "border-box"
-    ]
+    ( [ onClick (Select target) ]
+      ++ timelineHeaderStyle timeline
+      ++ selectionBorderStyle model timeline.id
+    )
     [ inlineEdit model target timeline.title ]
 
 
 viewTimeline : Model -> Timeline -> Html Msg
 viewTimeline model timeline =
   div
-    [ class "tl-timeline"
-    , attribute "data-id" (String.fromInt timeline.id)
-    , style "position" "relative"
-    , style "height" "60px"
-    , style "margin-bottom" "5px"
-    , style "background-color" (hsl timeline.color "95%")
-    , style "cursor" "crosshair"
-    ]
-    ( List.map
-      ( \tsId ->
+    ( [ class "tl-timeline"
+      , attribute "data-id" (String.fromInt timeline.id)
+      ]
+      ++ timelineStyle timeline
+    )
+    (List.map
+      (\tsId ->
         case Dict.get tsId model.timespans of
-          Just timespan -> viewTimespan model timespan timeline.color model.dragState
+          Just timespan -> viewTimespan model timespan timeline.color
           Nothing -> illegalTimespanId "viewTimeline" tsId text ""
       )
       timeline.tsIds
     )
 
 
-viewTimespan : Model -> Timespan -> Hue -> DragState -> Html Msg
-viewTimespan model timespan hue dragState =
+viewTimespan : Model -> Timespan -> Hue -> Html Msg
+viewTimespan model timespan hue =
   let
     target = TimespanTarget timespan.id
-    cursor =
-      case dragState of
-        DragTimespan _ _ _ -> "grabbing"
-        _ -> "grab"
   in
   div -- don't appy opacity to the selection border -> 2 nested divs
-    [ selectionBorder model timespan.id
-    , style "position" "absolute"
-    , style "top" "0"
-    , style "left" (String.fromInt timespan.begin ++ "px")
-    , style "width" (String.fromInt (timespan.end - timespan.begin) ++ "px")
-    , style "height" "100%"
-    , style "box-sizing" "border-box"
-    ]
+    (timespanBorderStyle model timespan)
     [ div
-      [ onClick (Select target)
-      , class "tl-timespan"
-      , attribute "data-id" (String.fromInt timespan.id)
-      , style "height" "100%"
-      , style "padding" "5px 6px"
-      , style "box-sizing" "border-box"
-      , style "background-color" (hsl hue "60%")
-      , style "opacity" "0.5"
-      , style "cursor" cursor
-      ]
+      ( [ onClick (Select target)
+        , class "tl-timespan"
+        , attribute "data-id" (String.fromInt timespan.id)
+        ]
+        ++ timespanStyle model hue
+      )
       [ inlineEdit model target timespan.title
       , viewResizer timespan.id "left"
       , viewResizer timespan.id "right"
@@ -538,18 +486,10 @@ viewTimespan model timespan hue dragState =
 viewResizer : Id -> String -> Html Msg
 viewResizer id pos =
   div
-    [ class ("tl-resizer-" ++ pos)
-    , attribute "data-id" (String.fromInt id)
-    , style "position" "absolute"
-    , style "top" "0"
-    , style pos "-5px"
-    , style "width" "10px"
-    , style "height" "100%"
-    , style "z-index" "1" -- keeps cursor when hovering other timespan
-    , style "cursor" "col-resize"
-    -- , style "background-color" "hsl(0, 0%, 50%)" -- for debugging
-    -- , style "opacity" "0.2"
-    ]
+    ( [ class ("tl-resizer-" ++ pos)
+      , attribute "data-id" (String.fromInt id)
+      ] ++ resizerStyle pos
+    )
     []
 
 
@@ -581,14 +521,7 @@ viewRectangle model =
   case model.dragState of
     DrawRect _ p size ->
       div
-        [ style "position" "absolute"
-        , style "top" (String.fromInt p.y ++ "px")
-        , style "left" (String.fromInt p.x ++ "px")
-        , style "width" (String.fromInt size.width ++ "px")
-        , style "height" (String.fromInt size.height ++ "px")
-        , style "border" "1px dashed gray"
-        , style "cursor" "crosshair"
-        ]
+        (rectangleStyle p size)
         []
     _ -> text ""
 
@@ -596,27 +529,21 @@ viewRectangle model =
 inlineEdit : Model -> Target -> String -> Html Msg
 inlineEdit model target title =
   let
-    v = case target of
-      TimelineTarget id -> { id = Just id, fs = "14px", fw = "bold" }
-      TimespanTarget id -> { id = Just id, fs = "16px", fw = "normal" }
-      NoTarget -> { id = Nothing, fs = "", fw = "" }
+    id_ = case target of
+      TimelineTarget id -> Just id
+      TimespanTarget id -> Just id
+      NoTarget -> Nothing
   in
-  case v.id of
+  case id_ of
     Just id ->
       if isActive model .editState id then
         input
-          [ value title
-          , style "position" "relative"
-          , style "top" "-3px"
-          , style "left" "-4px"
-          , style "width" "130px"
-          , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
-          , style "font-size" v.fs
-          , style "font-weight" v.fw
-          , onInput Edit
-          , onEnter EditEnd
-          , stopPropagationOnMousedown
-          ]
+          ( [ value title
+            , onInput Edit
+            , onEnter EditEnd
+            , stopPropagationOnMousedown
+            ] ++ inlineEditStyle target
+          )
           []
       else
         div
@@ -640,30 +567,6 @@ onEnter msg =
 stopPropagationOnMousedown : Attribute Msg
 stopPropagationOnMousedown =
   stopPropagationOn "mousedown" <| D.succeed (NoOp, True)
-
-
-selectionBorder : Model -> Id -> Attribute Msg
-selectionBorder model id =
-  style "border"
-    ( "2px solid " ++
-      if isActive model .selection id then
-        conf.selectionColor
-      else
-        "transparent"
-    )
-
-
-isActive : Model -> (Model -> Target) -> Id -> Bool
-isActive model targetFunc id =
-  case targetFunc model of
-    TimelineTarget id_ -> id_ == id
-    TimespanTarget id_ -> id_ == id
-    NoTarget -> False
-
-
-hsl : Int -> String -> String
-hsl hue lightness =
-  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
 
 
 
