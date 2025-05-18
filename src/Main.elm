@@ -508,27 +508,26 @@ view model =
       , style "overflow" "auto"
       ]
       [ div
+        [ style "position" "absolute"
+        , style "width" "150px" -- corresponds to timeline header width
+        , style "height" "30px" -- corresponds to timescale height
+        , style "z-index" "2" -- place on top of horizontal/vertical sticky areas
+        , style "background-color" "white"
+        --, style "background" "repeating-linear-gradient(-45deg, cyan, white 20px)"
+        ]
+        []
+      , div
         [ style "position" "sticky"
         , style "left" "0"
         , style "z-index" "1"
-        , style "margin-top" "30px"
+        , style "margin-top" "30px" -- corresponds to timescale height
         ]
         ( Dict.values model.timelines |>
             List.map ( \timeline -> viewTimelineHeader model timeline )
         )
       , div
         []
-        [ div
-          [ style "position" "absolute"
-          , style "left" "20px" -- corresponds to top-level padding
-          , style "width" "150px" -- corresponds to timeline header width
-          , style "height" "30px" -- corresponds to timescale height
-          , style "z-index" "2"
-          , style "background-color" "white"
-          --, style "background" "repeating-linear-gradient(-45deg, cyan, white 20px)"
-          ]
-          []
-        , viewTimeScale model
+        [ viewTimeScale model
         , div
           [ id "tl-timelines" ]
           ( Dict.values model.timelines |>
