@@ -11,7 +11,9 @@ import Array
 
 
 conf =
-  { pixelPerYear = 64
+  { primaryFontSize = "16px"
+  , secondaryFontSize = "14px"
+  , pixelPerYear = 64
   , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
                                -- green, red, blue, orange, purple, yellow
   , selectionColor = "#007AFF" -- Firefox focus color
@@ -31,7 +33,7 @@ appStyle model =
         _ -> "none"
   in
   [ style "font-family" "sans-serif"
-  , style "font-size" "16px"
+  , style "font-size" conf.primaryFontSize
   , style "display" "flex"
   , style "flex-direction" "column"
   , style "height" "100%"
@@ -71,7 +73,7 @@ timelineHeadersStyle =
 timelineHeaderStyle : Timeline -> List (Attribute Msg)
 timelineHeaderStyle timeline =
   [ style "background-color" (hsl timeline.color "95%")
-  , style "font-size" "14px"
+  , style "font-size" conf.secondaryFontSize
   , style "font-weight" "bold"
   , style "width" "150px"
   , style "height" "60px"
@@ -86,7 +88,7 @@ timeScaleStyle =
   [ style "position" "sticky"
   , style "top" "0"
   , style "z-index" "1"
-  , style "font-size" "14px"
+  , style "font-size" conf.secondaryFontSize
   , style "margin-bottom" "1px"
   , style "background-color" "white"
   ]
@@ -160,6 +162,21 @@ selectionBorderStyle model id =
   [ style "border" color ]
 
 
+toolbarStyle : List (Attribute Msg)
+toolbarStyle =
+  [ style "margin-top" "26px" ]
+
+
+toolbarButtonStyle : List (Attribute Msg)
+toolbarButtonStyle =
+  [ style "font-size" conf.secondaryFontSize ]
+
+
+nextToolbarButtonStyle : List (Attribute Msg)
+nextToolbarButtonStyle =
+  [ style "margin-left" "26px" ]
+
+
 rectangleStyle : Point -> Size -> List (Attribute Msg)
 rectangleStyle p size =
   [ style "position" "absolute"
@@ -176,8 +193,8 @@ inlineEditStyle : Target -> List (Attribute Msg)
 inlineEditStyle target =
   let
     (fs, fw) = case target of
-      TimelineTarget _ -> ( "14px", "bold" )
-      TimespanTarget _ -> ( "16px", "normal" )
+      TimelineTarget _ -> ( conf.secondaryFontSize, "bold" )
+      TimespanTarget _ -> ( conf.primaryFontSize, "normal" )
       NoTarget -> ( "", "" ) -- error logged already by caller
   in
   [ style "position" "relative"
@@ -198,26 +215,29 @@ toRenderSpace : Model -> Timespan -> (Int, Int)
 toRenderSpace model timespan =
   let
     beginYear = model.settings.beginYear
-    ppy = conf.pixelPerYear
-    x = ppy * timespan.begin // 365 - ppy * (beginYear - 1970)
-    width = ppy * (timespan.end - timespan.begin) // 365
+    x = toRenderValue timespan.begin - conf.pixelPerYear * (beginYear - 1970)
+    width = toRenderValue (timespan.end - timespan.begin)
   in
     (x, width)
+
+
+toRenderValue : Int -> Int
+toRenderValue width =
+  conf.pixelPerYear * width // 365
 
 
 toModelSpace : Model -> Int -> Int -> (Int, Int)
 toModelSpace model x width =
   let
     beginYear = model.settings.beginYear
-    ppy = conf.pixelPerYear
-    begin = 365 * x // ppy + 365 * (beginYear - 1970)
-    end = begin + toModelWidth width
+    begin = toModelValue x + 365 * (beginYear - 1970)
+    end = begin + toModelValue width
   in
     (begin, end)
 
 
-toModelWidth : Int -> Int
-toModelWidth width =
+toModelValue : Int -> Int
+toModelValue width =
   365 * width // conf.pixelPerYear
 
 

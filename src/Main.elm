@@ -7,7 +7,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
-import Html.Attributes exposing (class, id, attribute, style, value, disabled)
+import Html.Attributes exposing (class, id, attribute, value, disabled)
 import Html.Events exposing (onClick, onInput, on, stopPropagationOn, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
@@ -189,7 +189,7 @@ mouseUp model =
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
   let
-    delta_ = toModelWidth delta
+    delta_ = toModelValue delta
   in
   Dict.update
     id
@@ -479,7 +479,8 @@ viewResizer id pos =
   div
     ( [ class ("tl-resizer-" ++ pos)
       , attribute "data-id" (String.fromInt id)
-      ] ++ resizerStyle pos
+      ]
+      ++ resizerStyle pos
     )
     []
 
@@ -493,16 +494,20 @@ viewToolbar model =
         _ -> False
   in
   div
-    [ style "margin-top" "26px" ]
+    toolbarStyle
     [ button
-      [ onClick AddTimeline ]
+      ( [ onClick AddTimeline ]
+        ++ toolbarButtonStyle
+      )
       [ text "Add Timeline"]
     , button
-      [ onClick Delete
-      , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
-      , disabled disabled_
-      , style "margin-left" "26px"
-      ]
+      ( [ onClick Delete
+        , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
+        , disabled disabled_
+        ]
+        ++ toolbarButtonStyle
+        ++ nextToolbarButtonStyle
+      )
       [ text "Delete"]
     ]
 
@@ -533,7 +538,8 @@ inlineEdit model target title =
             , onInput Edit
             , onEnter EditEnd
             , stopPropagationOnMousedown
-            ] ++ inlineEditStyle target
+            ]
+            ++ inlineEditStyle target
           )
           []
       else
