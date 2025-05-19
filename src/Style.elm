@@ -154,7 +154,7 @@ selectionBorderStyle : Model -> Id -> List (Attribute Msg)
 selectionBorderStyle model id =
   let
     color = "2px solid " ++
-      if isActive model .selection id then
+      if isSelected model id then
         conf.selectionColor
       else
         "transparent"      
@@ -189,13 +189,14 @@ rectangleStyle p size =
   ]
 
 
-inlineEditStyle : Target -> List (Attribute Msg)
+inlineEditStyle : EditTarget -> List (Attribute Msg)
 inlineEditStyle target =
   let
     (fs, fw) = case target of
-      TimelineTarget _ -> ( conf.secondaryFontSize, "bold" )
-      TimespanTarget _ -> ( conf.primaryFontSize, "normal" )
-      NoTarget -> ( "", "" ) -- error logged already by caller
+      TimelineEdit _ -> ( conf.secondaryFontSize, "bold" )
+      TimespanEdit _ -> ( conf.primaryFontSize, "normal" )
+      TitleEdit -> ( "32px", "bold" ) -- TODO
+      NoEdit -> ( "", "" ) -- error logged already by caller
   in
   [ style "position" "relative"
   , style "top" "-3px"
@@ -241,12 +242,12 @@ toModelValue width =
   365 * width // conf.pixelPerYear
 
 
-isActive : Model -> (Model -> Target) -> Id -> Bool
-isActive model targetFunc id =
-  case targetFunc model of
-    TimelineTarget id_ -> id_ == id
-    TimespanTarget id_ -> id_ == id
-    NoTarget -> False
+isSelected : Model -> Id -> Bool
+isSelected model id =
+  case model.selection of
+    TimelineSelection id_ -> id_ == id
+    TimespanSelection id_ -> id_ == id
+    NoSelection -> False
 
 
 hsl : Int -> String -> String

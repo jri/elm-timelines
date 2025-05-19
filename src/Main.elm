@@ -71,7 +71,7 @@ update msg model =
     Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> ( { model | editState = target }, Cmd.none )
     Edit title -> updateTitle model title |> updateAndStore
-    EditEnd -> ( { model | editState = NoTarget }, Cmd.none )
+    EditEnd -> ( { model | editState = NoEdit }, Cmd.none )
     MouseDown -> ( reset model, Cmd.none )
     MouseDownItem p class id -> ( mouseDownOnItem model p class id, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
@@ -97,7 +97,7 @@ addTimeline model =
     { model
       | timelines = model.timelines |> Dict.insert id
         ( Timeline id "New Timeline" color [] )
-      , editState = TimelineTarget id
+      , editState = TimelineEdit id
       , nextId = id + 1
     }
 
@@ -115,8 +115,8 @@ addTimespan model tlId point size result =
       { model
         | timelines = updateTimeline model tlId tsId
         , timespans = model.timespans |> Dict.insert tsId timespan
-        , selection = TimespanTarget tsId
-        , editState = TimespanTarget tsId
+        , selection = TimespanSelection tsId
+        , editState = TimespanEdit tsId
         , nextId = model.nextId + 1
       }
     Err (Dom.NotFound e) -> logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") model
@@ -224,7 +224,7 @@ updateTimeline model tlId tsId =
 updateTitle : Model -> String -> Model
 updateTitle model title =
   case model.editState of
-    TimelineTarget id ->
+    TimelineEdit id ->
       { model | timelines = model.timelines |>
         Dict.update id
           (\tl -> case tl of
@@ -232,7 +232,7 @@ updateTitle model title =
             Nothing -> illegalTimelineId "updateTitle" id Nothing
           )
       }
-    TimespanTarget id ->
+    TimespanEdit id ->
       { model | timespans = model.timespans |>
         Dict.update id
           (\ts -> case ts of
@@ -240,32 +240,33 @@ updateTitle model title =
             Nothing -> illegalTimespanId "updateTitle" id Nothing
           )
       }
-    NoTarget -> logError "updateTitle" "called when editState is NoTarget" model
+    TitleEdit -> model -- TODO
+    NoEdit -> logError "updateTitle" "called when editState is NoEdit" model
 
 
 delete : Model -> Model
 delete model =
   case model.selection of
-    TimelineTarget id ->
+    TimelineSelection id ->
       case model.timelines |> Dict.get id of
         Just timeline ->
           { model
             | timelines = model.timelines |> Dict.remove id
             , timespans = model.timespans |> Dict.filter
                 (\tsId timespan -> not (List.member tsId timeline.tsIds))
-            , selection = NoTarget
+            , selection = NoSelection
           }
         Nothing -> illegalTimelineId "delete" id model
-    TimespanTarget id ->
+    TimespanSelection id ->
       case model.timespans |> Dict.get id of
         Just timespan ->
           { model
             | timelines = removeFromTimeline model id
             , timespans = model.timespans |> Dict.remove id
-            , selection = NoTarget
+            , selection = NoSelection
           }
         Nothing -> illegalTimespanId "delete" id model
-    NoTarget -> logError "delete" "called when \"selection\" state is NoTarget" model
+    NoSelection -> logError "delete" "called when \"selection\" state is NoSelection" model
 
 
 removeFromTimeline : Model -> Id -> Timelines
@@ -300,8 +301,8 @@ findTimelineOfTimespan model tsId =
 reset : Model -> Model
 reset model =
   { model
-  | selection = NoTarget
-  , editState = NoTarget
+  | selection = NoSelection
+  , editState = NoEdit
   }
 
 
@@ -425,14 +426,15 @@ timelineWidth model =
 viewTimelineHeader : Model -> Timeline -> Html Msg
 viewTimelineHeader model timeline =
   let
-    target = TimelineTarget timeline.id
+    selTarget = TimelineSelection timeline.id
+    editTarget = TimelineEdit timeline.id
   in
   div
-    ( [ onClick (Select target) ]
+    ( [ onClick (Select selTarget) ]
       ++ timelineHeaderStyle timeline
       ++ selectionBorderStyle model timeline.id
     )
-    [ inlineEdit model target timeline.title ]
+    [ inlineEdit model editTarget timeline.title ]
 
 
 viewTimeline : Model -> Timeline -> Html Msg
@@ -456,18 +458,19 @@ viewTimeline model timeline =
 viewTimespan : Model -> Timespan -> Hue -> Html Msg
 viewTimespan model timespan hue =
   let
-    target = TimespanTarget timespan.id
+    selTarget = TimespanSelection timespan.id
+    editTarget = TimespanEdit timespan.id
   in
   div -- don't appy opacity to the selection border -> 2 nested divs
     (timespanBorderStyle model timespan)
     [ div
-      ( [ onClick (Select target)
+      ( [ onClick (Select selTarget)
         , class "tl-timespan"
         , attribute "data-id" (String.fromInt timespan.id)
         ]
         ++ timespanStyle model hue
       )
-      [ inlineEdit model target timespan.title
+      [ inlineEdit model editTarget timespan.title
       , viewResizer timespan.id "left"
       , viewResizer timespan.id "right"
       ]
@@ -490,7 +493,7 @@ viewToolbar model =
   let
     disabled_ =
       case model.selection of
-        NoTarget -> True
+        NoSelection -> True
         _ -> False
   in
   div
@@ -522,31 +525,30 @@ viewRectangle model =
     _ -> text ""
 
 
-inlineEdit : Model -> Target -> String -> Html Msg
+inlineEdit : Model -> EditTarget -> String -> Html Msg
 inlineEdit model target title =
   let
-    id_ = case target of
-      TimelineTarget id -> Just id
-      TimespanTarget id -> Just id
-      NoTarget -> Nothing
+    active =
+      case target of
+        TimelineEdit id -> model.editState == TimelineEdit id
+        TimespanEdit id -> model.editState == TimespanEdit id
+        TitleEdit -> model.editState == TitleEdit
+        NoEdit -> False
   in
-  case id_ of
-    Just id ->
-      if isActive model .editState id then
-        input
-          ( [ value title
-            , onInput Edit
-            , onEnter EditEnd
-            , stopPropagationOnMousedown
-            ]
-            ++ inlineEditStyle target
-          )
-          []
-      else
-        div
-          [ onClick (EditStart target) ]
-          [ text title ]
-    Nothing -> logError "inlineEdit" "called when target is NoTarget" (text "")
+  if active then
+    input
+      ( [ value title
+        , onInput Edit
+        , onEnter EditEnd
+        , stopPropagationOnMousedown
+        ]
+        ++ inlineEditStyle target
+      )
+      []
+  else
+    div
+      [ onClick (EditStart target) ]
+      [ text title ]
 
 
 onEnter : Msg -> Attribute Msg

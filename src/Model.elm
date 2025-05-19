@@ -12,8 +12,8 @@ type alias Model =
   , timelines : Timelines
   , timespans : Timespans
   , dragState : DragState -- transient
-  , selection : Target -- transient
-  , editState : Target -- transient
+  , selection : SelectionTarget -- transient
+  , editState : EditTarget -- transient
   , settings : Settings
   , nextId : Id
   }
@@ -54,10 +54,17 @@ type TimespanMode
   | MoveEnd
 
 
-type Target
-  = TimelineTarget Id
-  | TimespanTarget Id
-  | NoTarget
+type SelectionTarget
+  = TimelineSelection Id
+  | TimespanSelection Id
+  | NoSelection
+
+
+type EditTarget
+  = TimelineEdit Id
+  | TimespanEdit Id
+  | TitleEdit
+  | NoEdit
 
 
 type alias Point =
@@ -86,12 +93,12 @@ type alias Settings =
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
-  | Select Target
-  | EditStart Target
+  | Select SelectionTarget
+  | EditStart EditTarget
   | Edit String
   | EditEnd
   | MouseDown -- mouse down somewhere
-  | MouseDownItem Point Class Id -- mouse down on an item where a drag can be initiated
+  | MouseDownItem Point Class Id -- mouse down on an item where a drag can be engaged
   | MouseMove Point
   | MouseUp
   | Delete
@@ -116,8 +123,8 @@ defaultModel =
       ]
     )
     NoDrag
-    NoTarget
-    NoTarget
+    NoSelection
+    NoEdit
     { beginYear = 1985
     , endYear = 2025
     }
@@ -187,8 +194,8 @@ decoder = D.map8 Model
     )
   )
   (D.succeed NoDrag)
-  (D.succeed NoTarget)
-  (D.succeed NoTarget)
+  (D.succeed NoSelection)
+  (D.succeed NoEdit)
   (D.field "settings"
     (D.map2 Settings
       (D.field "beginYear" D.int)
