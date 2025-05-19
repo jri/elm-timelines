@@ -3,13 +3,23 @@ module Style exposing (..)
 import Model exposing (..)
 import Html exposing (Attribute)
 import Html.Attributes exposing (style)
+import Array
 
+
+
+-- CONFIG
 
 
 conf =
-  { selectionColor = "#007AFF" -- Firefox focus color
+  { pixelPerYear = 64
+  , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
+                               -- green, red, blue, orange, purple, yellow
+  , selectionColor = "#007AFF" -- Firefox focus color
   }
 
+
+
+-- STYLE
 
 
 appStyle : Model -> List (Attribute Msg)
@@ -92,6 +102,21 @@ timelineStyle timeline =
   ]
 
 
+timespanBorderStyle : Model -> Timespan -> List (Attribute Msg)
+timespanBorderStyle model timespan =
+  let
+    (left, width) = toRenderSpace model timespan
+  in
+  [ style "position" "absolute"
+  , style "top" "0"
+  , style "left" (String.fromInt left ++ "px")
+  , style "width" (String.fromInt width ++ "px")
+  , style "height" "100%"
+  , style "box-sizing" "border-box"
+  ]
+  ++ selectionBorderStyle model timespan.id
+
+
 timespanStyle : Model -> Hue -> List (Attribute Msg)
 timespanStyle model hue =
   let
@@ -107,18 +132,6 @@ timespanStyle model hue =
   , style "opacity" "0.5"
   , style "cursor" cursor
   ]
-
-
-timespanBorderStyle : Model -> Timespan -> List (Attribute Msg)
-timespanBorderStyle model timespan =
-  [ style "position" "absolute"
-  , style "top" "0"
-  , style "left" (String.fromInt timespan.begin ++ "px")
-  , style "width" (String.fromInt (timespan.end - timespan.begin) ++ "px")
-  , style "height" "100%"
-  , style "box-sizing" "border-box"
-  ]
-  ++ selectionBorderStyle model timespan.id
 
 
 resizerStyle : String -> List (Attribute Msg)
@@ -179,6 +192,33 @@ inlineEditStyle target =
 
 
 -- HELPER
+
+
+toRenderSpace : Model -> Timespan -> (Int, Int)
+toRenderSpace model timespan =
+  let
+    beginYear = model.settings.beginYear
+    ppy = conf.pixelPerYear
+    x = ppy * timespan.begin // 365 - ppy * (beginYear - 1970)
+    width = ppy * (timespan.end - timespan.begin) // 365
+  in
+    (x, width)
+
+
+toModelSpace : Model -> Int -> Int -> (Int, Int)
+toModelSpace model x width =
+  let
+    beginYear = model.settings.beginYear
+    ppy = conf.pixelPerYear
+    begin = 365 * x // ppy + 365 * (beginYear - 1970)
+    end = begin + toModelWidth width
+  in
+    (begin, end)
+
+
+toModelWidth : Int -> Int
+toModelWidth width =
+  365 * width // conf.pixelPerYear
 
 
 isActive : Model -> (Model -> Target) -> Id -> Bool

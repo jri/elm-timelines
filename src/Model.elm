@@ -103,16 +103,16 @@ defaultModel =
   Model
     "Terry's life"
     ( Dict.fromList
-      [ (6, Timeline 6 "Living places" 120 [1, 2]) -- green
-      , (7, Timeline 7 "Girlfriends" 0 [3, 4, 5]) -- red
+      [ (6, Timeline 6 "Living places" 120 [1{-, 2-}]) -- green
+      , (7, Timeline 7 "Girlfriends" 0 [{-3, 4, 5-}]) -- red
       ]
     )
     ( Dict.fromList
-      [ (1, Timespan 1 "Park Avenue" 200 350)
-      , (2, Timespan 2 "Lake Street" 400 700)
-      , (3, Timespan 3 "Barbara" 128 315)
-      , (4, Timespan 4 "Caroline" 330 360)
-      , (5, Timespan 5 "Marina" 500 600)
+      [ (1, Timespan 1 "Park Avenue" 6570 7300) -- 1988-90 (2 years)
+      --, (2, Timespan 2 "Lake Street" 400 700)
+      --, (3, Timespan 3 "Barbara" 128 315)
+      --, (4, Timespan 4 "Caroline" 330 360)
+      --, (5, Timespan 5 "Marina" 500 600)
       ]
     )
     NoDrag

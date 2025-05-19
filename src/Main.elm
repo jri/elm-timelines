@@ -20,6 +20,13 @@ import Debug exposing (log)
 
 
 
+-- PORTS
+
+
+port store : E.Value -> Cmd msg
+
+
+
 -- MAIN
 
 
@@ -30,20 +37,6 @@ main =
     , subscriptions = subscriptions
     , view = view
     }
-
-
-
--- PORTS
-
-
-port store : E.Value -> Cmd msg
-
-
-conf =
-  { pixelPerYear = 64
-  , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
-                               -- green, red, blue, orange, purple, yellow
-  }
 
 
 init : E.Value -> ( Model, Cmd Msg )
@@ -115,12 +108,13 @@ addTimespan model tlId point size result =
     Ok timelinesDom ->
       let
         tsId = model.nextId
-        begin = point.x - round timelinesDom.element.x
-        end = begin + size.width
+        x = point.x - round timelinesDom.element.x
+        ( begin, end ) = toModelSpace model x size.width
+        timespan = Timespan tsId "New Timespan" begin end
       in
       { model
         | timelines = updateTimeline model tlId tsId
-        , timespans = insertNewTimespan model tsId begin end
+        , timespans = model.timespans |> Dict.insert tsId timespan
         , selection = TimespanTarget tsId
         , editState = TimespanTarget tsId
         , nextId = model.nextId + 1
@@ -194,6 +188,9 @@ mouseUp model =
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
+  let
+    delta_ = toModelWidth delta
+  in
   Dict.update
     id
     (\ts -> case ts of
@@ -201,13 +198,13 @@ updateTimespan model id delta mode =
         case mode of
           MoveTimespan ->
             { timespan
-              | begin = timespan.begin + delta
-              , end = timespan.end + delta
+              | begin = timespan.begin + delta_
+              , end = timespan.end + delta_
             }
           MoveBegin ->
-            { timespan | begin = timespan.begin + delta }
+            { timespan | begin = timespan.begin + delta_ }
           MoveEnd ->
-            { timespan | end = timespan.end + delta }
+            { timespan | end = timespan.end + delta_ }
       Nothing -> illegalTimespanId "updateTimespan" id Nothing
     )
     model.timespans
@@ -222,12 +219,6 @@ updateTimeline model tlId tsId =
       Nothing -> illegalTimelineId "updateTimeline" tlId Nothing
     )
     model.timelines
-
-
-insertNewTimespan : Model -> Id -> Int -> Int -> Timespans
-insertNewTimespan model tsId begin end =
-  model.timespans |> Dict.insert tsId
-    ( Timespan tsId "New Timespan" begin end )
 
 
 updateTitle : Model -> String -> Model
