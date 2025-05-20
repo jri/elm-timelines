@@ -225,23 +225,20 @@ updateTitle : Model -> String -> Model
 updateTitle model title =
   case model.editState of
     TimelineEdit id ->
-      { model | timelines = model.timelines |>
-        Dict.update id
-          (\tl -> case tl of
-            Just timeline -> Just { timeline | title = title }
-            Nothing -> illegalTimelineId "updateTitle" id Nothing
-          )
-      }
+      { model | timelines = updateTitleDict model.timelines "Timeline" id title }
     TimespanEdit id ->
-      { model | timespans = model.timespans |>
-        Dict.update id
-          (\ts -> case ts of
-            Just timespan -> Just { timespan | title = title }
-            Nothing -> illegalTimespanId "updateTitle" id Nothing
-          )
-      }
+      { model | timespans = updateTitleDict model.timespans "Timespan" id title }
     TitleEdit -> { model | title = title }
     NoEdit -> logError "updateTitle" "called when editState is NoEdit" model
+
+
+updateTitleDict : TitleDict a -> String -> Id -> String -> TitleDict a
+updateTitleDict dict item id title =
+  dict |> Dict.update id
+    (\value_ -> case value_ of
+      Just value -> Just { value | title = title }
+      Nothing -> illegalId "updateTitleDict" item id Nothing
+    )
 
 
 delete : Model -> Model
@@ -569,12 +566,17 @@ stopPropagationOnMousedown =
 
 illegalTimespanId : String -> Int -> a -> a
 illegalTimespanId func id val =
-  logError func (String.fromInt id ++ " is an illegal Timespan ID") val
+  illegalId func "Timespan" id val
 
 
 illegalTimelineId : String -> Int -> a -> a
 illegalTimelineId func id val =
-  logError func (String.fromInt id ++ " is an illegal Timeline ID") val
+  illegalId func "Timeline" id val
+
+
+illegalId : String -> String -> Int -> a -> a
+illegalId func item id val =
+  logError func (String.fromInt id ++ " is an illegal " ++ item ++ " ID") val
 
 
 logError : String -> String -> a -> a

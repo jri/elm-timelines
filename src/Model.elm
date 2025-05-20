@@ -42,6 +42,9 @@ type alias Timespan =
   }
 
 
+type alias TitleDict a = Dict Int { a | title : String }
+
+
 type DragState
   = NoDrag
   | Engaged Point Class Id
