@@ -7,7 +7,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
 import Html exposing (Html, Attribute, h1, div, span, text, button, input)
-import Html.Attributes exposing (class, id, attribute, value, disabled)
+import Html.Attributes exposing (class, id, style, attribute, value, disabled)
 import Html.Events exposing (onClick, onInput, on, stopPropagationOn, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
@@ -240,7 +240,7 @@ updateTitle model title =
             Nothing -> illegalTimespanId "updateTitle" id Nothing
           )
       }
-    TitleEdit -> model -- TODO
+    TitleEdit -> { model | title = title }
     NoEdit -> logError "updateTitle" "called when editState is NoEdit" model
 
 
@@ -360,9 +360,7 @@ view : Model -> Html Msg
 view model =
   div
     (appStyle model)
-    [ h1
-        []
-        [ text model.title ]
+    [ editable model TitleEdit titleTextStyle model.title
     , div
         contentStyle
         [ div
@@ -434,7 +432,7 @@ viewTimelineHeader model timeline =
       ++ timelineHeaderStyle timeline
       ++ selectionBorderStyle model timeline.id
     )
-    [ inlineEdit model editTarget timeline.title ]
+    [ editable model editTarget timelineHeaderTextStyle timeline.title ]
 
 
 viewTimeline : Model -> Timeline -> Html Msg
@@ -470,7 +468,7 @@ viewTimespan model timespan hue =
         ]
         ++ timespanStyle model hue
       )
-      [ inlineEdit model editTarget timespan.title
+      [ editable model editTarget defaultTextStyle timespan.title
       , viewResizer timespan.id "left"
       , viewResizer timespan.id "right"
       ]
@@ -525,29 +523,26 @@ viewRectangle model =
     _ -> text ""
 
 
-inlineEdit : Model -> EditTarget -> String -> Html Msg
-inlineEdit model target title =
-  let
-    active =
-      case target of
-        TimelineEdit id -> model.editState == TimelineEdit id
-        TimespanEdit id -> model.editState == TimespanEdit id
-        TitleEdit -> model.editState == TitleEdit
-        NoEdit -> False
-  in
-  if active then
+editable : Model -> EditTarget -> List (Attribute Msg) -> String -> Html Msg
+editable model target textStyle title =
+  if target == model.editState then
     input
       ( [ value title
         , onInput Edit
         , onEnter EditEnd
         , stopPropagationOnMousedown
         ]
-        ++ inlineEditStyle target
+        ++ editStyle
+        ++ textStyle
       )
       []
   else
     div
-      [ onClick (EditStart target) ]
+      ( [ onClick (EditStart target)
+        , style "margin-bottom" "6px" -- compensate higher input field height -- TODO
+        ]
+        ++ textStyle
+      )
       [ text title ]
 
 

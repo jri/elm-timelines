@@ -33,13 +33,34 @@ appStyle model =
         _ -> "none"
   in
   [ style "font-family" "sans-serif"
-  , style "font-size" conf.primaryFontSize
   , style "display" "flex"
   , style "flex-direction" "column"
   , style "height" "100%"
   , style "padding" "20px"
   , style "box-sizing" "border-box"
   , style "user-select" userSelect
+  ]
+  ++ defaultTextStyle
+
+
+defaultTextStyle : List (Attribute Msg)
+defaultTextStyle =
+  [ style "font-size" conf.primaryFontSize
+  , style "font-weight" "normal"
+  ]
+
+
+titleTextStyle : List (Attribute Msg)
+titleTextStyle =
+  [ style "font-size" "24px"
+  , style "font-weight" "bold"
+  ]
+
+
+timelineHeaderTextStyle : List (Attribute Msg)
+timelineHeaderTextStyle =
+  [ style "font-size" conf.secondaryFontSize
+  , style "font-weight" "bold"
   ]
 
 
@@ -73,8 +94,6 @@ timelineHeadersStyle =
 timelineHeaderStyle : Timeline -> List (Attribute Msg)
 timelineHeaderStyle timeline =
   [ style "background-color" (hsl timeline.color "95%")
-  , style "font-size" conf.secondaryFontSize
-  , style "font-weight" "bold"
   , style "width" "150px"
   , style "height" "60px"
   , style "margin-top" "5px"
@@ -189,22 +208,13 @@ rectangleStyle p size =
   ]
 
 
-inlineEditStyle : EditTarget -> List (Attribute Msg)
-inlineEditStyle target =
-  let
-    (fs, fw) = case target of
-      TimelineEdit _ -> ( conf.secondaryFontSize, "bold" )
-      TimespanEdit _ -> ( conf.primaryFontSize, "normal" )
-      TitleEdit -> ( "32px", "bold" ) -- TODO
-      NoEdit -> ( "", "" ) -- error logged already by caller
-  in
+editStyle : List (Attribute Msg)
+editStyle =
   [ style "position" "relative"
   , style "top" "-3px"
   , style "left" "-4px"
   , style "width" "130px"
-  , style "font-family" "sans-serif" -- Default (on Mac) is "-apple-system"
-  , style "font-size" fs
-  , style "font-weight" fw
+  , style "font-family" "sans-serif" -- Default for <input> is "-apple-system" (on Mac)
   ]
 
 
