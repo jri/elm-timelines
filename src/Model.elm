@@ -3,6 +3,7 @@ module Model exposing (..)
 import Browser.Dom as Dom
 import Json.Decode as D
 import Json.Encode as E
+import Json.Decode.Pipeline exposing (required, hardcoded)
 import Dict exposing (Dict)
 
 
@@ -171,38 +172,35 @@ encode model =
 
 
 decoder : D.Decoder Model
-decoder = D.map8 Model
-  (D.field "title" D.string)
-  (D.field "timelines"
-    (D.dict
-      (D.map4 Timeline
-        (D.field "id"    D.int)
-        (D.field "title" D.string)
-        (D.field "color" D.int)
-        (D.field "tsIds" (D.list D.int))
-      ) |> D.andThen strToIntDictDecoder
-    )
-  )
-  (D.field "timespans"
-    (D.dict
-      (D.map4 Timespan
-        (D.field "id"    D.int)
-        (D.field "title" D.string)
-        (D.field "begin" D.int)
-        (D.field "end"   D.int)
-      ) |> D.andThen strToIntDictDecoder
-    )
-  )
-  (D.succeed NoDrag)
-  (D.succeed NoSelection)
-  (D.succeed NoEdit)
-  (D.field "settings"
-    (D.map2 Settings
-      (D.field "beginYear" D.int)
-      (D.field "endYear"   D.int)
-    )
-  )
-  (D.field "nextId" D.int)
+decoder = D.succeed Model
+  |> required "title" D.string
+  |> required "timelines"
+      (D.dict
+        (D.map4 Timeline
+          (D.field "id"    D.int)
+          (D.field "title" D.string)
+          (D.field "color" D.int)
+          (D.field "tsIds" (D.list D.int))
+        ) |> D.andThen strToIntDictDecoder
+      )
+  |> required "timespans"
+      (D.dict
+        (D.map4 Timespan
+          (D.field "id"    D.int)
+          (D.field "title" D.string)
+          (D.field "begin" D.int)
+          (D.field "end"   D.int)
+        ) |> D.andThen strToIntDictDecoder
+      )
+  |> hardcoded NoDrag
+  |> hardcoded NoSelection
+  |> hardcoded NoEdit
+  |> required "settings"
+      (D.map2 Settings
+        (D.field "beginYear" D.int)
+        (D.field "endYear"   D.int)
+      )
+  |> required "nextId" D.int
 
 
 strToIntDictDecoder : Dict String v -> D.Decoder (Dict Int v)
