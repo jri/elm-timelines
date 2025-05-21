@@ -77,6 +77,8 @@ update msg model =
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
     Delete -> delete model |> updateAndStore
+    OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )   -- TODO
+    CloseSettings -> ( { model | isSettingsOpen = False }, Cmd.none ) -- TODO
     NoOp -> ( model, Cmd.none )
 
 
@@ -380,6 +382,7 @@ view model =
         ]
     , viewToolbar model
     , viewRectangle model
+    , viewSettings model
     ]
 
 
@@ -486,10 +489,11 @@ viewResizer id pos =
 viewToolbar : Model -> Html Msg
 viewToolbar model =
   let
-    disabled_ =
+    deleteDisabled =
       case model.selection of
         NoSelection -> True
         _ -> False
+    settingsDisabled = model.isSettingsOpen
   in
   div
     toolbarStyle
@@ -501,12 +505,20 @@ viewToolbar model =
     , button
       ( [ onClick Delete
         , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
-        , disabled disabled_
+        , disabled deleteDisabled
         ]
         ++ toolbarButtonStyle
-        ++ nextToolbarButtonStyle
       )
       [ text "Delete"]
+    , div spacerStyle []
+    , button
+      ( [ onClick OpenSettings
+        --, stopPropagationOnMousedown -- TODO?
+        , disabled settingsDisabled
+        ]
+        ++ toolbarButtonStyle
+      )
+      [ text "Settings"]
     ]
 
 
@@ -520,9 +532,46 @@ viewRectangle model =
     _ -> text ""
 
 
+viewSettings : Model -> Html Msg
+viewSettings model =
+  if model.isSettingsOpen then
+    div
+      settingsStyle
+      [ div
+          []
+          [ text "Timeline" ]
+      , div
+          settingsContentStyle
+          [ div
+              []
+              [ text "Begin"]
+          , input [] []
+          , div
+              []
+              [ text "End"]
+            , input [] []
+          ]
+      , button
+          ( [ onClick CloseSettings ]
+            ++ settingsButtonStyle
+          )
+          [ text "x" ]
+      ]
+  else
+    text ""
+
+
 editable : Model -> EditTarget -> List (Attribute Msg) -> String -> Html Msg
 editable model target textStyle title =
-  if target == model.editState then
+  if target /= model.editState then
+    div
+      ( [ onClick (EditStart target)
+        , style "margin-bottom" "6px" -- compensate higher input field height -- TODO
+        ]
+        ++ textStyle
+      )
+      [ text title ]
+  else
     input
       ( [ value title
         , onInput Edit
@@ -533,14 +582,6 @@ editable model target textStyle title =
         ++ textStyle
       )
       []
-  else
-    div
-      ( [ onClick (EditStart target)
-        , style "margin-bottom" "6px" -- compensate higher input field height -- TODO
-        ]
-        ++ textStyle
-      )
-      [ text title ]
 
 
 onEnter : Msg -> Attribute Msg

@@ -183,7 +183,10 @@ selectionBorderStyle model id =
 
 toolbarStyle : List (Attribute Msg)
 toolbarStyle =
-  [ style "margin-top" "26px" ]
+  [ style "display" "flex"
+  , style "column-gap" "26px"
+  , style "margin-top" "26px"
+  ]
 
 
 toolbarButtonStyle : List (Attribute Msg)
@@ -191,9 +194,9 @@ toolbarButtonStyle =
   [ style "font-size" conf.secondaryFontSize ]
 
 
-nextToolbarButtonStyle : List (Attribute Msg)
-nextToolbarButtonStyle =
-  [ style "margin-left" "26px" ]
+spacerStyle : List (Attribute Msg)
+spacerStyle =
+  [ style "flex" "auto" ]
 
 
 rectangleStyle : Point -> Size -> List (Attribute Msg)
@@ -205,6 +208,36 @@ rectangleStyle p size =
   , style "height" (String.fromInt size.height ++ "px")
   , style "border" "1px dashed gray"
   , style "cursor" "crosshair"
+  ]
+
+
+settingsStyle : List (Attribute Msg)
+settingsStyle =
+  [ style "position" "absolute"
+  , style "bottom" "50px"
+  , style "right" "20px"
+  , style "padding" "15px"
+  , style "font-size" conf.secondaryFontSize
+  , style "background-color" "white"
+  , style "box-shadow" "0 0 4px lightgray"
+  ]
+
+
+settingsContentStyle : List (Attribute Msg)
+settingsContentStyle =
+  [ style "display" "grid"
+  , style "grid-template-columns" "50px 50px"
+  , style "gap" "5px"
+  , style "align-items" "baseline"
+  , style "margin-top" "15px"
+  ]
+
+
+settingsButtonStyle : List (Attribute Msg)
+settingsButtonStyle =
+  [ style "position" "absolute"
+  , style "top" "2px"
+  , style "right" "2px"
   ]
 
 

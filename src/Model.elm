@@ -2,8 +2,8 @@ module Model exposing (..)
 
 import Browser.Dom as Dom
 import Json.Decode as D
-import Json.Encode as E
 import Json.Decode.Pipeline exposing (required, hardcoded)
+import Json.Encode as E
 import Dict exposing (Dict)
 
 
@@ -12,11 +12,17 @@ type alias Model =
   { title : String
   , timelines : Timelines
   , timespans : Timespans
-  , dragState : DragState -- transient
   , selection : SelectionTarget -- transient
-  , editState : EditTarget -- transient
+  , editState : EditTarget      -- transient
+  , dragState : DragState       -- transient
   , settings : Settings
   , nextId : Id
+  -- Settings dialog
+  , isSettingsOpen : Bool       -- transient
+  , settingsBuffer :            -- transient
+    { beginYear : String
+    , endYear : String
+    }
   }
 
 
@@ -106,6 +112,8 @@ type Msg
   | MouseMove Point
   | MouseUp
   | Delete
+  | OpenSettings
+  | CloseSettings
   | NoOp
 
 
@@ -126,13 +134,15 @@ defaultModel =
       --, (5, Timespan 5 "Marina" 500 600)
       ]
     )
-    NoDrag
     NoSelection
     NoEdit
-    { beginYear = 1985
-    , endYear = 2025
-    }
+    NoDrag
+    (Settings 1985 2025)
     100
+    False
+    { beginYear = ""
+    , endYear = ""
+    }
 
 
 
@@ -195,15 +205,20 @@ decoder = D.succeed Model
           (D.field "end"   D.int)
         ) |> D.andThen strToIntDictDecoder
       )
-  |> hardcoded NoDrag
   |> hardcoded NoSelection
   |> hardcoded NoEdit
+  |> hardcoded NoDrag
   |> required "settings"
       (D.map2 Settings
         (D.field "beginYear" D.int)
         (D.field "endYear"   D.int)
       )
   |> required "nextId" D.int
+  |> hardcoded False
+  |> hardcoded
+      { beginYear = ""
+      , endYear = ""
+      }
 
 
 strToIntDictDecoder : Dict String v -> D.Decoder (Dict Int v)
