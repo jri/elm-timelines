@@ -100,6 +100,11 @@ type alias Settings =
   }
 
 
+type Field
+  = BeginYear
+  | EndYear
+
+
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
@@ -112,8 +117,11 @@ type Msg
   | MouseMove Point
   | MouseUp
   | Delete
+  -- Settings dialog
   | OpenSettings
+  | EditSetting Field String
   | CloseSettings
+  --
   | NoOp
 
 

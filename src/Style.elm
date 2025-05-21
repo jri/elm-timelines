@@ -226,10 +226,10 @@ settingsStyle =
 settingsContentStyle : List (Attribute Msg)
 settingsContentStyle =
   [ style "display" "grid"
-  , style "grid-template-columns" "50px 50px"
-  , style "gap" "5px"
+  , style "grid-template-columns" "42px 50px"
+  , style "gap" "6px"
   , style "align-items" "baseline"
-  , style "margin-top" "15px"
+  , style "margin-top" "12px"
   ]
 
 

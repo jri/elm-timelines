@@ -77,8 +77,11 @@ update msg model =
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
     Delete -> delete model |> updateAndStore
-    OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )   -- TODO
-    CloseSettings -> ( { model | isSettingsOpen = False }, Cmd.none ) -- TODO
+    -- Settings dialog
+    OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )
+    EditSetting field value -> ( updateSetting model field value, Cmd.none )
+    CloseSettings -> closeSettings model |> updateAndStore
+    --
     NoOp -> ( model, Cmd.none )
 
 
@@ -296,6 +299,37 @@ findTimelineOfTimespan model tsId =
     _ -> logError "findTimelineOfTimespan"
       ("timespan " ++ String.fromInt tsId ++ " in more than one timeline") Nothing
 
+
+-- Settings dialog
+
+updateSetting : Model -> Field -> String -> Model
+updateSetting model field value =
+  let
+    sb = model.settingsBuffer
+  in
+  case field of
+    BeginYear -> { model | settingsBuffer = { sb | beginYear = value } }
+    EndYear -> { model | settingsBuffer = { sb | endYear = value } }
+
+
+closeSettings : Model -> Model
+closeSettings model =
+  let
+    settings_ =
+      Maybe.map2
+        (\begin end -> Settings begin end)
+        (model.settingsBuffer.beginYear |> String.toInt)
+        (model.settingsBuffer.endYear |> String.toInt)
+  in
+  { model
+    | settings =
+        case settings_ of
+          Just settings -> settings
+          Nothing -> logError "closeSettings" "Invalid user input" model.settings
+    , isSettingsOpen = False
+  }
+
+--
 
 reset : Model -> Model
 reset model =
@@ -545,11 +579,19 @@ viewSettings model =
           [ div
               []
               [ text "Begin"]
-          , input [] []
+          , input
+              [ value model.settingsBuffer.beginYear
+              , onInput (EditSetting BeginYear)
+              ]
+              []
           , div
               []
               [ text "End"]
-            , input [] []
+          , input
+              [ value model.settingsBuffer.endYear
+              , onInput (EditSetting EndYear)
+              ]
+              []
           ]
       , button
           ( [ onClick CloseSettings ]
