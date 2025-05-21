@@ -148,8 +148,8 @@ defaultModel =
     (Settings 1985 2025)
     100
     False
-    { beginYear = ""
-    , endYear = ""
+    { beginYear = "1985"
+    , endYear = "2025"
     }
 
 
@@ -193,40 +193,42 @@ encode model =
 
 
 decoder : D.Decoder Model
-decoder = D.succeed Model
-  |> required "title" D.string
-  |> required "timelines"
-      (D.dict
-        (D.map4 Timeline
-          (D.field "id"    D.int)
-          (D.field "title" D.string)
-          (D.field "color" D.int)
-          (D.field "tsIds" (D.list D.int))
-        ) |> D.andThen strToIntDictDecoder
-      )
-  |> required "timespans"
-      (D.dict
-        (D.map4 Timespan
-          (D.field "id"    D.int)
-          (D.field "title" D.string)
-          (D.field "begin" D.int)
-          (D.field "end"   D.int)
-        ) |> D.andThen strToIntDictDecoder
-      )
-  |> hardcoded NoSelection
-  |> hardcoded NoEdit
-  |> hardcoded NoDrag
-  |> required "settings"
-      (D.map2 Settings
-        (D.field "beginYear" D.int)
-        (D.field "endYear"   D.int)
-      )
-  |> required "nextId" D.int
-  |> hardcoded False
-  |> hardcoded
-      { beginYear = ""
-      , endYear = ""
-      }
+decoder =
+  D.succeed Model
+    |> required "title" D.string
+    |> required "timelines"
+        (D.dict
+          (D.map4 Timeline
+            (D.field "id"    D.int)
+            (D.field "title" D.string)
+            (D.field "color" D.int)
+            (D.field "tsIds" (D.list D.int))
+          ) |> D.andThen strToIntDictDecoder
+        )
+    |> required "timespans"
+        (D.dict
+          (D.map4 Timespan
+            (D.field "id"    D.int)
+            (D.field "title" D.string)
+            (D.field "begin" D.int)
+            (D.field "end"   D.int)
+          ) |> D.andThen strToIntDictDecoder
+        )
+    |> hardcoded NoSelection
+    |> hardcoded NoEdit
+    |> hardcoded NoDrag
+    |> required "settings"
+        (D.map2 Settings
+          (D.field "beginYear" D.int)
+          (D.field "endYear"   D.int)
+        )
+    |> required "nextId" D.int
+    |> hardcoded False
+    |> hardcoded
+        { beginYear = ""
+        , endYear = ""
+        }
+    |> D.andThen initBufferDecoder
 
 
 strToIntDictDecoder : Dict String v -> D.Decoder (Dict Int v)
@@ -239,7 +241,7 @@ strToIntDictDecoder strDict =
 strToIntDict : Dict String v -> Maybe (Dict Int v)
 strToIntDict strDict =
   strDict |> Dict.foldl
-    ( \k v b ->
+    (\k v b ->
       case b of
         Just b_ ->
           case String.toInt k of
@@ -248,3 +250,16 @@ strToIntDict strDict =
         Nothing -> Nothing
     )
     (Just Dict.empty)
+
+
+initBufferDecoder : Model -> D.Decoder Model
+initBufferDecoder model =
+  let
+    s = model.settings
+  in
+  D.succeed
+    { model | settingsBuffer =
+      { beginYear = String.fromInt s.beginYear
+      , endYear = String.fromInt s.endYear
+      }
+    }
