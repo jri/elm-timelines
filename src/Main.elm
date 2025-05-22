@@ -43,13 +43,13 @@ init : E.Value -> ( Model, Cmd Msg )
 init flags =
   ( case D.decodeValue decoder flags of
       Ok model ->
-        log "Reading from localStorage" model
+        log "Reading localStorage" model
       Err e ->
         let
-          _ = log "Reading from localStorage" e
+          _ = logError "init" "Could not read localStorage" e
         in
         defaultModel
-    , Cmd.none
+  , Cmd.none
   )
 
 
@@ -77,6 +77,9 @@ update msg model =
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
     Delete -> delete model |> updateAndStore
+    -- Zooming
+    ZoomIn -> { model | zoom = model.zoom - 1 } |> updateAndStore
+    ZoomOut -> { model | zoom = model.zoom + 1 } |> updateAndStore
     -- Settings dialog
     OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )
     EditSetting field value -> ( updateSetting model field value, Cmd.none )
@@ -194,7 +197,7 @@ mouseUp model =
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
 updateTimespan model id delta mode =
   let
-    delta_ = toModelValue delta
+    delta_ = toModelValue model delta
   in
   Dict.update
     id
@@ -435,7 +438,7 @@ viewTimeScale model =
     (List.range model.settings.beginYear model.settings.endYear |> List.map
       (\year ->
         let
-          x_ = (year - model.settings.beginYear) * conf.pixelPerYear
+          x_ = (year - model.settings.beginYear) * pixelPerYear model
           x1_ = x_ |> String.fromInt
           y1_ = "0"
           x2_ = x1_
@@ -452,7 +455,7 @@ viewTimeScale model =
 
 timelineWidth : Model -> Int
 timelineWidth model =
-  (model.settings.endYear - model.settings.beginYear + 1) * conf.pixelPerYear
+  (model.settings.endYear - model.settings.beginYear + 1) * pixelPerYear model
 
 
 viewTimelineHeader : Model -> Timeline -> Html Msg
@@ -528,31 +531,47 @@ viewToolbar model =
         NoSelection -> True
         _ -> False
     settingsDisabled = model.isSettingsOpen
+    zoomInDisabled = model.zoom == 0
+    zoomOutDisabled = model.zoom == Array.length conf.zoomLevels - 1
   in
   div
     toolbarStyle
     [ button
-      ( [ onClick AddTimeline ]
-        ++ toolbarButtonStyle
-      )
-      [ text "Add Timeline"]
+        ( [ onClick ZoomIn
+          , disabled zoomInDisabled
+          ]
+          ++ toolbarButtonStyle
+        )
+        [ text "+"]
     , button
-      ( [ onClick Delete
-        , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
-        , disabled deleteDisabled
-        ]
-        ++ toolbarButtonStyle
-      )
-      [ text "Delete"]
+        ( [ onClick ZoomOut
+          , disabled zoomOutDisabled
+          ]
+          ++ toolbarButtonStyle
+        )
+        [ text "-"]
+    , button
+        ( [ onClick AddTimeline ]
+          ++ toolbarButtonStyle
+        )
+        [ text "Add Timeline"]
+    , button
+        ( [ onClick Delete
+          , stopPropagationOnMousedown -- avoid disabling button before "click" can occur
+          , disabled deleteDisabled
+          ]
+          ++ toolbarButtonStyle
+        )
+        [ text "Delete"]
     , div spacerStyle []
     , button
-      ( [ onClick OpenSettings
-        --, stopPropagationOnMousedown -- TODO?
-        , disabled settingsDisabled
-        ]
-        ++ toolbarButtonStyle
-      )
-      [ text "Settings"]
+        ( [ onClick OpenSettings
+          --, stopPropagationOnMousedown -- TODO?
+          , disabled settingsDisabled
+          ]
+          ++ toolbarButtonStyle
+        )
+        [ text "Settings"]
     ]
 
 
@@ -660,8 +679,3 @@ illegalTimelineId func id val =
 illegalId : String -> String -> Int -> a -> a
 illegalId func item id val =
   logError func (String.fromInt id ++ " is an illegal " ++ item ++ " ID") val
-
-
-logError : String -> String -> a -> a
-logError func text val =
-  log ("ERROR in " ++ func ++ ": " ++ text) val

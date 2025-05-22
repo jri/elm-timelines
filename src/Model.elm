@@ -17,6 +17,8 @@ type alias Model =
   , dragState : DragState       -- transient
   , settings : Settings
   , nextId : Id
+  -- Zooming
+  , zoom : Int
   -- Settings dialog
   , isSettingsOpen : Bool       -- transient
   , settingsBuffer :            -- transient
@@ -105,6 +107,10 @@ type Field
   | EndYear
 
 
+type alias ZoomLevel =
+  { pixelPerYear : Int }
+
+
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
@@ -117,6 +123,9 @@ type Msg
   | MouseMove Point
   | MouseUp
   | Delete
+  -- Zooming
+  | ZoomIn
+  | ZoomOut
   -- Settings dialog
   | OpenSettings
   | EditSetting Field String
@@ -147,6 +156,7 @@ defaultModel =
     NoDrag
     (Settings 1985 2025)
     100
+    3
     False
     { beginYear = "1985"
     , endYear = "2025"
@@ -189,6 +199,7 @@ encode model =
         ]
       )
     , ("nextId", E.int model.nextId)
+    , ("zoom", E.int model.zoom)
     ]
 
 
@@ -223,6 +234,7 @@ decoder =
           (D.field "endYear"   D.int)
         )
     |> required "nextId" D.int
+    |> required "zoom" D.int
     |> hardcoded False
     |> hardcoded
         { beginYear = ""

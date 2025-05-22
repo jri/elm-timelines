@@ -4,6 +4,7 @@ import Model exposing (..)
 import Html exposing (Attribute)
 import Html.Attributes exposing (style)
 import Array
+import Debug exposing (log)
 
 
 
@@ -13,10 +14,18 @@ import Array
 conf =
   { primaryFontSize = "16px"
   , secondaryFontSize = "14px"
-  , pixelPerYear = 64
   , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
                                -- green, red, blue, orange, purple, yellow
   , selectionColor = "#007AFF" -- Firefox focus color
+  , zoomLevels = Array.fromList
+      [ ZoomLevel 512
+      , ZoomLevel 256
+      , ZoomLevel 128
+      , ZoomLevel 64
+      , ZoomLevel 32
+      , ZoomLevel 16
+      , ZoomLevel 8
+      ]
   }
 
 
@@ -259,30 +268,37 @@ toRenderSpace : Model -> Timespan -> (Int, Int)
 toRenderSpace model timespan =
   let
     beginYear = model.settings.beginYear
-    x = toRenderValue timespan.begin - conf.pixelPerYear * (beginYear - 1970)
-    width = toRenderValue (timespan.end - timespan.begin)
+    x = toRenderValue model timespan.begin - pixelPerYear model * (beginYear - 1970)
+    width = toRenderValue model (timespan.end - timespan.begin)
   in
     (x, width)
 
 
-toRenderValue : Int -> Int
-toRenderValue width =
-  conf.pixelPerYear * width // 365
+toRenderValue : Model -> Int -> Int
+toRenderValue model width =
+  pixelPerYear model * width // 365
 
 
 toModelSpace : Model -> Int -> Int -> (Int, Int)
 toModelSpace model x width =
   let
     beginYear = model.settings.beginYear
-    begin = toModelValue x + 365 * (beginYear - 1970)
-    end = begin + toModelValue width
+    begin = toModelValue model x + 365 * (beginYear - 1970)
+    end = begin + toModelValue model width
   in
     (begin, end)
 
 
-toModelValue : Int -> Int
-toModelValue width =
-  365 * width // conf.pixelPerYear
+toModelValue : Model -> Int -> Int
+toModelValue model width =
+  365 * width // pixelPerYear model
+
+
+pixelPerYear : Model -> Int
+pixelPerYear model =
+  case Array.get model.zoom conf.zoomLevels of
+    Just level -> level.pixelPerYear
+    Nothing -> logError "pixelPerYear" (String.fromInt model.zoom ++ " is an invalid zoom") 1
 
 
 isSelected : Model -> Id -> Bool
@@ -296,3 +312,12 @@ isSelected model id =
 hsl : Int -> String -> String
 hsl hue lightness =
   "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
+
+
+
+-- DEBUG
+
+
+logError : String -> String -> a -> a
+logError func text val =
+  log ("ERROR in " ++ func ++ ": " ++ text) val
