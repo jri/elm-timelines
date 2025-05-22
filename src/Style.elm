@@ -18,13 +18,13 @@ conf =
                                -- green, red, blue, orange, purple, yellow
   , selectionColor = "#007AFF" -- Firefox focus color
   , zoomLevels = Array.fromList
-      [ ZoomLevel 512
-      , ZoomLevel 256
-      , ZoomLevel 128
-      , ZoomLevel 64
-      , ZoomLevel 32
-      , ZoomLevel 16
-      , ZoomLevel 8
+      [ ZoomLevel 512  1    -- 0 max in
+      , ZoomLevel 256  1    -- 1
+      , ZoomLevel 128  1    -- 2
+      , ZoomLevel  64  1    -- 3 default
+      , ZoomLevel  32  2    -- 4
+      , ZoomLevel  16  5    -- 5
+      , ZoomLevel   8 10    -- 6 max out
       ]
   }
 
@@ -299,6 +299,13 @@ pixelPerYear model =
   case Array.get model.zoom conf.zoomLevels of
     Just level -> level.pixelPerYear
     Nothing -> logError "pixelPerYear" (String.fromInt model.zoom ++ " is an invalid zoom") 1
+
+
+yearStep : Model -> Int
+yearStep model =
+  case Array.get model.zoom conf.zoomLevels of
+    Just level -> level.yearStep
+    Nothing -> logError "yearStep" (String.fromInt model.zoom ++ " is an invalid zoom") 1
 
 
 isSelected : Model -> Id -> Bool

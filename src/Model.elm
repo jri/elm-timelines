@@ -108,7 +108,9 @@ type Field
 
 
 type alias ZoomLevel =
-  { pixelPerYear : Int }
+  { pixelPerYear : Int
+  , yearStep : Int
+  }
 
 
 type Msg

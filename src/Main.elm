@@ -438,16 +438,19 @@ viewTimeScale model =
     (List.range model.settings.beginYear model.settings.endYear |> List.map
       (\year ->
         let
+          showYear = modBy (yearStep model) year == 0
           x_ = (year - model.settings.beginYear) * pixelPerYear model
           x1_ = x_ |> String.fromInt
-          y1_ = "0"
+          y1_ = if showYear then "0" else "25"
           x2_ = x1_
-          y2_ = "40"
+          y2_ = "30"
           tx = (x_ + 3) |> String.fromInt
         in
-        [ line [ x1 x1_, y1 y1_, x2 x2_, y2 y2_, stroke "gray" ] []
-        , text_ [ x tx, y "12", fill "gray" ] [ text (String.fromInt year) ]
-        ]
+        [ line [ x1 x1_, y1 y1_, x2 x2_, y2 y2_, stroke "gray" ] []] ++
+        if showYear then
+          [ text_ [ x tx, y "12", fill "gray" ] [ text (String.fromInt year) ]]
+        else
+          []
       )
       |> List.foldr (++) []
     )
