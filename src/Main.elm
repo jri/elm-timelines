@@ -117,7 +117,7 @@ addTimespan model tlId point size result =
         tsId = model.nextId
         x = point.x - round timelinesDom.element.x
         ( begin, end ) = toModelSpace model x size.width
-        timespan = Timespan tsId "New Timespan" begin end
+        timespan = Timespan tsId "New Timespan" begin end 0 0
       in
       { model
         | timelines = updateTimeline model tlId tsId
@@ -534,19 +534,16 @@ viewTimespan model timespan hue =
     selTarget = TimespanSelection timespan.id
     editTarget = TimespanEdit timespan.id
   in
-  div -- don't appy opacity to the selection border -> 2 nested divs
-    (timespanBorderStyle model timespan)
-    [ div
-      ( [ onClick (Select selTarget)
-        , class "tl-timespan"
-        , attribute "data-id" (String.fromInt timespan.id)
-        ]
-        ++ timespanStyle model hue
-      )
-      [ editable model editTarget defaultTextStyle timespan.title
-      , viewResizer timespan.id "left"
-      , viewResizer timespan.id "right"
+  div
+    ( [ onClick (Select selTarget)
+      , class "tl-timespan"
+      , attribute "data-id" (String.fromInt timespan.id)
       ]
+      ++ timespanStyle model timespan hue
+    )
+    [ editable model editTarget defaultTextStyle timespan.title
+    , viewResizer timespan.id "left"
+    , viewResizer timespan.id "right"
     ]
 
 

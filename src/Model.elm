@@ -47,6 +47,8 @@ type alias Timespan =
   , title : String
   , begin : Int
   , end : Int
+  , beginMargin : Int
+  , endMargin : Int
   }
 
 
@@ -150,7 +152,7 @@ defaultModel =
       ]
     )
     ( Dict.fromList
-      [ (1, Timespan 1 "Park Avenue" 6570 7300) -- 1988-90 (2 years)
+      [ (1, Timespan 1 "Park Avenue" 6570 7665 182 365) -- 1988-91 (3 years)
       --, (2, Timespan 2 "Lake Street" 400 700)
       --, (3, Timespan 3 "Barbara" 128 315)
       --, (4, Timespan 4 "Caroline" 330 360)
@@ -191,10 +193,12 @@ encode model =
     , ("timespans", E.dict
         String.fromInt
         ( \timespan -> E.object
-          [ ("id",    E.int    timespan.id)
-          , ("title", E.string timespan.title)
-          , ("begin", E.int    timespan.begin)
-          , ("end",   E.int    timespan.end)
+          [ ("id",          E.int    timespan.id)
+          , ("title",       E.string timespan.title)
+          , ("begin",       E.int    timespan.begin)
+          , ("end",         E.int    timespan.end)
+          , ("beginMargin", E.int    timespan.beginMargin)
+          , ("endMargin",   E.int    timespan.endMargin)
           ]
         )
         model.timespans
@@ -216,7 +220,7 @@ decoder =
     |> required "timelines"
         (D.dict
           (D.map4 Timeline
-            (D.field "id"    D.int)
+            (D.field "id" D.int)
             (D.field "title" D.string)
             (D.field "color" D.int)
             (D.field "tsIds" (D.list D.int))
@@ -224,11 +228,13 @@ decoder =
         )
     |> required "timespans"
         (D.dict
-          (D.map4 Timespan
-            (D.field "id"    D.int)
+          (D.map6 Timespan
+            (D.field "id" D.int)
             (D.field "title" D.string)
             (D.field "begin" D.int)
-            (D.field "end"   D.int)
+            (D.field "end" D.int)
+            (D.field "beginMargin" D.int)
+            (D.field "endMargin" D.int)
           ) |> D.andThen strToIntDictDecoder
         )
     |> hardcoded NoSelection
@@ -237,7 +243,7 @@ decoder =
     |> required "settings"
         (D.map2 Settings
           (D.field "beginYear" D.int)
-          (D.field "endYear"   D.int)
+          (D.field "endYear" D.int)
         )
     |> required "nextId" D.int
     |> required "zoom" D.int

@@ -132,36 +132,31 @@ timelineStyle timeline =
   ]
 
 
-timespanBorderStyle : Model -> Timespan -> List (Attribute Msg)
-timespanBorderStyle model timespan =
+timespanStyle : Model -> Timespan -> Hue -> List (Attribute Msg)
+timespanStyle model timespan hue =
   let
-    (left, width) = toRenderSpace model timespan
-  in
-  [ style "position" "absolute"
-  , style "top" "0"
-  , style "left" (String.fromInt left ++ "px")
-  , style "width" (String.fromInt width ++ "px")
-  , style "height" "100%"
-  , style "box-sizing" "border-box"
-  ]
-  ++ selectionBorderStyle model timespan.id
-
-
-timespanStyle : Model -> Hue -> List (Attribute Msg)
-timespanStyle model hue =
-  let
+    (x, width) = toRenderSpace model timespan.begin timespan.end
+    beginWidth = toRenderValue model timespan.beginMargin
+    endWidth = toRenderValue model timespan.endMargin
+    color = hsla hue "60%" 0.5
     cursor =
       case model.dragState of
         DragTimespan _ _ _ -> "grabbing"
         _ -> "grab"
   in
-  [ style "height" "100%"
+  [ style "position" "absolute"
+  , style "top" "0"
+  , style "left" (String.fromInt (x - beginWidth) ++ "px")
+  , style "width" (String.fromInt (width + beginWidth + endWidth) ++ "px")
+  , style "height" "100%"
   , style "padding" "5px 6px"
   , style "box-sizing" "border-box"
-  , style "background-color" (hsl hue "60%")
-  , style "opacity" "0.5"
+  , style "background" ("linear-gradient(to right, transparent, " ++ color ++ " " ++
+      String.fromInt beginWidth ++ "px, " ++ color ++ " " ++
+      String.fromInt (beginWidth + width) ++ "px, transparent 100%)")
   , style "cursor" cursor
   ]
+  ++ selectionBorderStyle model timespan.id
 
 
 resizerStyle : String -> List (Attribute Msg)
@@ -264,19 +259,14 @@ editStyle =
 -- HELPER
 
 
-toRenderSpace : Model -> Timespan -> (Int, Int)
-toRenderSpace model timespan =
+toRenderSpace : Model -> Int -> Int -> (Int, Int)
+toRenderSpace model begin end =
   let
     beginYear = model.settings.beginYear
-    x = toRenderValue model timespan.begin - pixelPerYear model * (beginYear - 1970)
-    width = toRenderValue model (timespan.end - timespan.begin)
+    x = toRenderValue model begin - pixelPerYear model * (beginYear - 1970)
+    width = toRenderValue model (end - begin)
   in
     (x, width)
-
-
-toRenderValue : Model -> Int -> Int
-toRenderValue model width =
-  pixelPerYear model * width // 365
 
 
 toModelSpace : Model -> Int -> Int -> (Int, Int)
@@ -289,9 +279,14 @@ toModelSpace model x width =
     (begin, end)
 
 
+toRenderValue : Model -> Int -> Int
+toRenderValue model x =
+  pixelPerYear model * x // 365
+
+
 toModelValue : Model -> Int -> Int
-toModelValue model width =
-  365 * width // pixelPerYear model
+toModelValue model x =
+  365 * x // pixelPerYear model
 
 
 pixelPerYear : Model -> Int
@@ -318,7 +313,12 @@ isSelected model id =
 
 hsl : Int -> String -> String
 hsl hue lightness =
-  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ")"
+  hsla hue lightness 1.0
+
+
+hsla : Int -> String -> Float -> String
+hsla hue lightness alpha =
+  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ", " ++ String.fromFloat alpha ++ ")"
 
 
 
