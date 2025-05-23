@@ -15,7 +15,7 @@ import Dict exposing (Dict)
 import Array
 import Json.Decode as D
 import Json.Encode as E
-import Task
+import Task exposing (Task)
 import Debug exposing (log)
 
 
@@ -78,8 +78,7 @@ update msg model =
     MouseUp -> mouseUp model
     Delete -> delete model |> updateAndStore
     -- Zooming
-    ZoomIn -> { model | zoom = model.zoom - 1 } |> updateAndStore
-    ZoomOut -> { model | zoom = model.zoom + 1 } |> updateAndStore
+    Zoom op -> zoom model op
     -- Settings dialog
     OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )
     EditSetting field value -> ( updateSetting model field value, Cmd.none )
@@ -303,6 +302,39 @@ findTimelineOfTimespan model tsId =
       ("timespan " ++ String.fromInt tsId ++ " in more than one timeline") Nothing
 
 
+-- Zooming
+
+zoom : Model -> ZoomOp -> ( Model, Cmd Msg )
+zoom model op =
+  let
+    delta = case op of
+      In -> -1
+      Out -> 1
+    newModel = { model | zoom = model.zoom + delta }
+  in
+  ( newModel
+  , Cmd.batch
+    [ Dom.getViewportOf "tl-scrollcontainer"
+      |> Task.andThen (\viewport -> viewport |> adjustViewport op)
+      |> Task.attempt (\_ -> NoOp)
+    , encode newModel |> store
+    ]
+  )
+
+
+adjustViewport : ZoomOp -> Dom.Viewport -> Task Dom.Error ()
+adjustViewport op viewport =
+  let
+    _ = log "tl-scrollcontainer viewport" viewport
+    v = viewport.viewport
+    w = v.width - 150   -- 150 is width of sticky timeline headers
+    (x, y) = case op of
+      In ->  (v.x * 2 + w / 2, v.y)
+      Out -> (v.x / 2 - w / 4, v.y)
+  in
+    Dom.setViewportOf "tl-scrollcontainer" x y
+
+
 -- Settings dialog
 
 updateSetting : Model -> Field -> String -> Model
@@ -331,6 +363,7 @@ closeSettings model =
           Nothing -> logError "closeSettings" "Invalid user input" model.settings
     , isSettingsOpen = False
   }
+
 
 --
 
@@ -398,7 +431,9 @@ view model =
     (appStyle model)
     [ editable model TitleEdit titleTextStyle model.title
     , div
-        contentStyle
+        ( [ id "tl-scrollcontainer" ]
+          ++ contentStyle
+        )
         [ div
             blinderStyle
             []
@@ -540,14 +575,14 @@ viewToolbar model =
   div
     toolbarStyle
     [ button
-        ( [ onClick ZoomIn
+        ( [ onClick (Zoom In)
           , disabled zoomInDisabled
           ]
           ++ toolbarButtonStyle
         )
         [ text "+"]
     , button
-        ( [ onClick ZoomOut
+        ( [ onClick (Zoom Out)
           , disabled zoomOutDisabled
           ]
           ++ toolbarButtonStyle

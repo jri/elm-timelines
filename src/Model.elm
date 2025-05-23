@@ -107,6 +107,11 @@ type Field
   | EndYear
 
 
+type ZoomOp
+  = In
+  | Out
+
+
 type alias ZoomLevel =
   { pixelPerYear : Int
   , yearStep : Int
@@ -126,8 +131,7 @@ type Msg
   | MouseUp
   | Delete
   -- Zooming
-  | ZoomIn
-  | ZoomOut
+  | Zoom ZoomOp
   -- Settings dialog
   | OpenSettings
   | EditSetting Field String
@@ -156,12 +160,12 @@ defaultModel =
     NoSelection
     NoEdit
     NoDrag
-    (Settings 1985 2025)
+    (Settings 1960 2040)
     100
     3
     False
-    { beginYear = "1985"
-    , endYear = "2025"
+    { beginYear = "1960"
+    , endYear = "2040"
     }
 
 
