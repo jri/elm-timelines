@@ -66,6 +66,8 @@ type TimespanMode
   = MoveTimespan
   | MoveBegin
   | MoveEnd
+  | MoveBeginMargin
+  | MoveEndMargin
 
 
 type SelectionTarget
@@ -152,7 +154,7 @@ defaultModel =
       ]
     )
     ( Dict.fromList
-      [ (1, Timespan 1 "Park Avenue" 6570 7665 182 365) -- 1988-91 (3 years)
+      [ (1, Timespan 1 "Park Avenue" 6570 7665 0 0) -- 1988-91 (3 years)
       --, (2, Timespan 2 "Lake Street" 400 700)
       --, (3, Timespan 3 "Barbara" 128 315)
       --, (4, Timespan 4 "Caroline" 330 360)

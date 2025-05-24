@@ -146,8 +146,10 @@ mouseMove model p =
           "tl-timespan"      -> DragTimespan id MoveTimespan p_
           "tl-resizer-left"  -> DragTimespan id MoveBegin p_
           "tl-resizer-right" -> DragTimespan id MoveEnd p_
+          "tl-slider-left"   -> DragTimespan id MoveBeginMargin p_
+          "tl-slider-right"  -> DragTimespan id MoveEndMargin p_
           "tl-timeline" -> DrawRect id p_ (Size 0 0)
-          _ -> NoDrag
+          _ -> NoDrag -- the error will be logged in performDrag
       in
       performDrag { model | dragState = dragState } p
     DragTimespan _ _ _ ->
@@ -212,6 +214,10 @@ updateTimespan model id delta mode =
             { timespan | begin = timespan.begin + delta_ }
           MoveEnd ->
             { timespan | end = timespan.end + delta_ }
+          MoveBeginMargin ->
+            { timespan | beginMargin = timespan.beginMargin - delta_ |> max 0 }
+          MoveEndMargin ->
+            { timespan | endMargin = timespan.endMargin + delta_ |> max 0 }
       Nothing -> illegalTimespanId "updateTimespan" id Nothing
     )
     model.timespans
@@ -531,21 +537,29 @@ viewTimeline model timeline =
 viewTimespan : Model -> Timespan -> Hue -> Html Msg
 viewTimespan model timespan hue =
   let
-    selTarget = TimespanSelection timespan.id
-    editTarget = TimespanEdit timespan.id
+    id = timespan.id
+    selTarget = TimespanSelection id
+    editTarget = TimespanEdit id
   in
   div
     ( [ onClick (Select selTarget)
       , class "tl-timespan"
-      , attribute "data-id" (String.fromInt timespan.id)
+      , attribute "data-id" (String.fromInt id)
       ]
       ++ timespanStyle model timespan hue
     )
-    [ editable model editTarget defaultTextStyle timespan.title
-    , viewResizer timespan.id "left"
-    , viewResizer timespan.id "right"
-    ]
-
+    ( [ editable model editTarget defaultTextStyle timespan.title
+      , viewResizer id "left"
+      , viewResizer id "right"
+      ]
+      ++
+        if isSelected model id then
+          [ viewSlider id "left"
+          , viewSlider id "right"
+          ]
+        else
+          []
+    )
 
 viewResizer : Id -> String -> Html Msg
 viewResizer id pos =
@@ -554,6 +568,17 @@ viewResizer id pos =
       , attribute "data-id" (String.fromInt id)
       ]
       ++ resizerStyle pos
+    )
+    []
+
+
+viewSlider : Id -> String -> Html Msg
+viewSlider id pos =
+  div
+    ( [ class ("tl-slider-" ++ pos)
+      , attribute "data-id" (String.fromInt id)
+      ]
+      ++ sliderStyle pos
     )
     []
 

@@ -166,10 +166,22 @@ resizerStyle pos =
   , style pos "-5px"
   , style "width" "10px"
   , style "height" "100%"
-  , style "z-index" "1" -- keeps cursor when hovering other timespan
   , style "cursor" "col-resize"
-  -- , style "background-color" "hsl(0, 0%, 50%)" -- for debugging
-  -- , style "opacity" "0.2"
+  , style "z-index" "1" -- keeps cursor when hovering other timespan
+  ]
+
+
+sliderStyle : String -> List (Attribute Msg)
+sliderStyle pos =
+  [ style "position" "absolute"
+  , style "top" "-7px"
+  , style pos "-7px"
+  , style "width" "12px"
+  , style "height" "12px"
+  , style "border-radius" "6px"
+  , style "background-color" conf.selectionColor
+  , style "cursor" "vertical-text"
+  , style "z-index" "2" -- above resizer
   ]
 
 
@@ -327,4 +339,4 @@ hsla hue lightness alpha =
 
 logError : String -> String -> a -> a
 logError func text val =
-  log ("ERROR in " ++ func ++ ": " ++ text) val
+  log ("### ERROR @" ++ func ++ ": " ++ text) val
