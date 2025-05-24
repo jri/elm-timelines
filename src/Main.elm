@@ -132,7 +132,7 @@ addTimespan model tlId point size result =
 mouseDownOnItem : Model -> Point -> Class -> Id -> Model
 mouseDownOnItem model p class id =
   let
-    newModel = reset model
+    newModel = {- reset -} model -- TODO: when reset?
   in
   { newModel | dragState = Engaged p class id }
 
@@ -548,13 +548,12 @@ viewTimespan model timespan hue =
       ]
       ++ timespanStyle model timespan hue
     )
-    ( [ editable model editTarget defaultTextStyle timespan.title
-      , viewResizer id "left"
-      , viewResizer id "right"
-      ]
+    ( [ editable model editTarget defaultTextStyle timespan.title ]
       ++
         if isSelected model id then
-          [ viewSlider id "left"
+          [ viewResizer id "left"
+          , viewResizer id "right"
+          , viewSlider id "left"
           , viewSlider id "right"
           ]
         else

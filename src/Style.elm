@@ -162,10 +162,12 @@ timespanStyle model timespan hue =
 resizerStyle : String -> List (Attribute Msg)
 resizerStyle pos =
   [ style "position" "absolute"
-  , style "top" "0"
-  , style pos "-5px"
-  , style "width" "10px"
-  , style "height" "100%"
+  , style "top" "calc(50% - 7px)"
+  , style pos "-7px"
+  , style "width" "12px"
+  , style "height" "12px"
+  , style "border-radius" "6px"
+  , style "background-color" conf.selectionColor
   , style "cursor" "col-resize"
   , style "z-index" "1" -- keeps cursor when hovering other timespan
   ]
@@ -181,7 +183,7 @@ sliderStyle pos =
   , style "border-radius" "6px"
   , style "background-color" conf.selectionColor
   , style "cursor" "vertical-text"
-  , style "z-index" "2" -- above resizer
+  , style "z-index" "1"
   ]
 
 
