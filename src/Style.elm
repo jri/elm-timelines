@@ -136,8 +136,6 @@ timespanStyle : Model -> Timespan -> Hue -> List (Attribute Msg)
 timespanStyle model timespan hue =
   let
     (x, width) = toRenderSpace model timespan.begin timespan.end
-    beginWidth = toRenderValue model timespan.beginMargin
-    endWidth = toRenderValue model timespan.endMargin
     color = hsla hue "60%" 0.5
     cursor =
       case model.dragState of
@@ -146,17 +144,32 @@ timespanStyle model timespan hue =
   in
   [ style "position" "absolute"
   , style "top" "0"
-  , style "left" (String.fromInt (x - beginWidth) ++ "px")
-  , style "width" (String.fromInt (width + beginWidth + endWidth) ++ "px")
+  , style "left" (String.fromInt x ++ "px")
+  , style "width" (String.fromInt width ++ "px")
   , style "height" "100%"
   , style "padding" "5px 6px"
   , style "box-sizing" "border-box"
-  , style "background" ("linear-gradient(to right, transparent, " ++ color ++ " " ++
-      String.fromInt beginWidth ++ "px, " ++ color ++ " " ++
-      String.fromInt (beginWidth + width) ++ "px, transparent 100%)")
+  , style "background-color" color
   , style "cursor" cursor
   ]
-  ++ selectionBorderStyle model timespan.id
+
+
+gradientStyle : Model -> Timespan -> Hue -> String -> List (Attribute Msg)
+gradientStyle model timespan hue pos =
+  let
+    margin = case pos of
+      "left" -> toRenderValue model timespan.beginMargin
+      "right" -> toRenderValue model timespan.endMargin
+      _ -> logError "gradientStyle" (pos ++ " is an unexpected pos") 0
+    color = hsla hue "60%" 0.5
+  in
+  [ style "position" "absolute"
+  , style "top" "-2px" -- border width
+  , style pos (String.fromInt (-margin - 2) ++ "px") -- 2 = border width
+  , style "width" (String.fromInt margin ++ "px")
+  , style "height" "calc(100% + 4px)" -- 2x border width
+  , style "background" ("linear-gradient(to " ++ pos ++ ", " ++ color ++ ", transparent)")
+  ]
 
 
 resizerStyle : String -> List (Attribute Msg)
@@ -173,11 +186,19 @@ resizerStyle pos =
   ]
 
 
-sliderStyle : String -> List (Attribute Msg)
-sliderStyle pos =
+sliderStyle : Model -> Timespan -> String -> List (Attribute Msg)
+sliderStyle model timespan pos =
+  let
+    beginWidth = toRenderValue model timespan.beginMargin
+    endWidth = toRenderValue model timespan.endMargin
+    x = case pos of
+      "left" -> -beginWidth - 7
+      "right" -> -endWidth - 7
+      _ -> logError "sliderStyle" (pos ++ " is an unexpected pos") 0
+  in
   [ style "position" "absolute"
   , style "top" "-7px"
-  , style pos "-7px"
+  , style pos (String.fromInt x ++ "px")
   , style "width" "12px"
   , style "height" "12px"
   , style "border-radius" "6px"

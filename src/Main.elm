@@ -547,14 +547,22 @@ viewTimespan model timespan hue =
       , attribute "data-id" (String.fromInt id)
       ]
       ++ timespanStyle model timespan hue
+      ++ selectionBorderStyle model id
     )
-    ( [ editable model editTarget defaultTextStyle timespan.title ]
+    ( [ editable model editTarget defaultTextStyle timespan.title
+      , div
+          (gradientStyle model timespan hue "left")
+          []
+      , div
+          (gradientStyle model timespan hue "right")
+          []
+      ]
       ++
         if isSelected model id then
           [ viewResizer id "left"
           , viewResizer id "right"
-          , viewSlider id "left"
-          , viewSlider id "right"
+          , viewSlider model timespan "left"
+          , viewSlider model timespan "right"
           ]
         else
           []
@@ -571,13 +579,13 @@ viewResizer id pos =
     []
 
 
-viewSlider : Id -> String -> Html Msg
-viewSlider id pos =
+viewSlider : Model -> Timespan -> String -> Html Msg
+viewSlider model timespan pos =
   div
     ( [ class ("tl-slider-" ++ pos)
-      , attribute "data-id" (String.fromInt id)
+      , attribute "data-id" (String.fromInt timespan.id)
       ]
-      ++ sliderStyle pos
+      ++ sliderStyle model timespan pos
     )
     []
 
