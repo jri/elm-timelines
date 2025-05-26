@@ -12,8 +12,8 @@ type alias Model =
   { title : String
   , timelines : Timelines
   , timespans : Timespans
-  , selection : SelectionTarget -- transient
-  , editState : EditTarget      -- transient
+  , selection : SelectionState  -- transient
+  , editState : EditState       -- transient
   , dragState : DragState       -- transient
   , settings : Settings
   , nextId : Id
@@ -70,13 +70,13 @@ type TimespanMode
   | MoveEndMargin
 
 
-type SelectionTarget
+type SelectionState
   = TimelineSelection Id
   | TimespanSelection Id
   | NoSelection
 
 
-type EditTarget
+type EditState
   = TimelineEdit Id
   | TimespanEdit Id
   | TitleEdit
@@ -125,8 +125,8 @@ type alias ZoomLevel =
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
-  | Select SelectionTarget
-  | EditStart EditTarget
+  | Select SelectionState
+  | EditStart EditState
   | Edit String
   | EditEnd
   | MouseDown -- mouse down somewhere

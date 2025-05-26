@@ -16,7 +16,7 @@ import Array
 import Json.Decode as D
 import Json.Encode as E
 import Task exposing (Task)
-import Debug exposing (log)
+import Debug exposing (log, toString)
 
 
 
@@ -69,7 +69,7 @@ update msg model =
     AddTimespan tlId point size result ->
       addTimespan model tlId point size result |> updateAndStore
     Select target -> ( { model | selection = target }, Cmd.none )
-    EditStart target -> ( { model | editState = target }, Cmd.none )
+    EditStart target -> startEditing model target
     Edit title -> updateTitle model title |> updateAndStore
     EditEnd -> ( { model | editState = NoEdit }, Cmd.none )
     MouseDown -> ( reset model, Cmd.none )
@@ -127,6 +127,32 @@ addTimespan model tlId point size result =
         , nextId = model.nextId + 1
       }
     Err (Dom.NotFound e) -> logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") model
+
+
+startEditing : Model -> EditState -> ( Model, Cmd Msg )
+startEditing model target =
+  let
+    nodeId =
+      case target of
+        TimelineEdit id -> "tl-input-" ++ String.fromInt id
+        TimespanEdit id -> "tl-input-" ++ String.fromInt id
+        TitleEdit -> "tl-title-input"
+        NoEdit -> logError "startEditing" "called with target NoEdit" ""
+    -- _ = log "nodeId" nodeId
+  in
+  (
+    { model | editState = target }
+  , Dom.focus nodeId |> Task.attempt
+      (\result ->
+        case result of
+          Ok () -> NoOp
+          Err e ->
+            let
+              _ = logError "startEditing" ("\"" ++ toString e ++ "\"")
+            in
+              NoOp
+      )
+  )
 
 
 mouseDownOnItem : Model -> Point -> Class -> Id -> Model
@@ -435,7 +461,7 @@ view : Model -> Html Msg
 view model =
   div
     (appStyle model)
-    [ editable model TitleEdit titleTextStyle model.title
+    [ editable model TitleEdit "tl-title-input" titleTextStyle model.title
     , div
         ( [ id "tl-scrollcontainer" ]
           ++ contentStyle
@@ -507,13 +533,14 @@ viewTimelineHeader model timeline =
   let
     selTarget = TimelineSelection timeline.id
     editTarget = TimelineEdit timeline.id
+    inputId = "tl-input-" ++ String.fromInt timeline.id
   in
   div
     ( [ onClick (Select selTarget) ]
       ++ timelineHeaderStyle timeline
       ++ selectionBorderStyle model timeline.id
     )
-    [ editable model editTarget timelineHeaderTextStyle timeline.title ]
+    [ editable model editTarget inputId timelineHeaderTextStyle timeline.title ]
 
 
 viewTimeline : Model -> Timeline -> Html Msg
@@ -540,6 +567,7 @@ viewTimespan model timespan hue =
     id = timespan.id
     selTarget = TimespanSelection id
     editTarget = TimespanEdit id
+    inputId = "tl-input-" ++ String.fromInt id
   in
   div
     ( [ onClick (Select selTarget)
@@ -549,7 +577,7 @@ viewTimespan model timespan hue =
       ++ timespanStyle model timespan hue
       ++ selectionBorderStyle model id
     )
-    ( [ editable model editTarget defaultTextStyle timespan.title
+    ( [ editable model editTarget inputId defaultTextStyle timespan.title
       , div
           (gradientStyle model timespan hue "left")
           []
@@ -690,8 +718,8 @@ viewSettings model =
     text ""
 
 
-editable : Model -> EditTarget -> List (Attribute Msg) -> String -> Html Msg
-editable model target textStyle title =
+editable : Model -> EditState -> String -> List (Attribute Msg) -> String -> Html Msg
+editable model target inputId textStyle title =
   if target /= model.editState then
     div
       ( [ onClick (EditStart target)
@@ -702,7 +730,8 @@ editable model target textStyle title =
       [ text title ]
   else
     input
-      ( [ value title
+      ( [ id inputId
+        , value title
         , onInput Edit
         , onEnter EditEnd
         , stopPropagationOnMousedown
