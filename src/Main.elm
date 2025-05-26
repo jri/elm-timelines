@@ -568,6 +568,7 @@ viewTimespan model timespan hue =
           []
     )
 
+
 viewResizer : Id -> String -> Html Msg
 viewResizer id pos =
   div
