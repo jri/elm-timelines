@@ -147,26 +147,19 @@ type Msg
 defaultModel : Model
 defaultModel =
   Model
-    "Terry's life"
+    "Title"
     ( Dict.fromList
-      [ (6, Timeline 6 "Living places" 120 [1{-, 2-}]) -- green
-      , (7, Timeline 7 "Girlfriends" 0 [{-3, 4, 5-}]) -- red
-      ]
+      [ (1, Timeline 1 "A Timeline" 120 []) ] -- green
     )
     ( Dict.fromList
-      [ (1, Timespan 1 "Park Avenue" 6570 7665 0 0) -- 1988-91 (3 years)
-      --, (2, Timespan 2 "Lake Street" 400 700)
-      --, (3, Timespan 3 "Barbara" 128 315)
-      --, (4, Timespan 4 "Caroline" 330 360)
-      --, (5, Timespan 5 "Marina" 500 600)
-      ]
+      []
     )
     NoSelection
     NoEdit
     NoDrag
     (Settings 1960 2040)
-    100
-    3
+    2 -- nextId
+    3 -- zoom
     False
     { beginYear = "1960"
     , endYear = "2040"
