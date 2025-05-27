@@ -66,8 +66,8 @@ update msg model =
   --}
   case msg of
     AddTimeline -> addTimeline model |> updateAndStore
-    AddTimespan tlId point size result ->
-      addTimespan model tlId point size result |> updateAndStore
+    AddTimespan tlId point size viewport ->
+      addTimespan model tlId point size viewport |> updateAndStore
     Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> startEditing target model
     Edit title -> ( updateTitle model title, Cmd.none ) |> updateAndStore
@@ -114,25 +114,21 @@ addTimeline model =
   |> startEditing (TimelineEdit id)
 
 
-addTimespan : Model -> Id -> Point -> Size -> Result Dom.Error Dom.Element -> ( Model, Cmd Msg )
-addTimespan model tlId point size result =
-  case result of
-    Ok timelinesDom ->
-      let
-        tsId = model.nextId
-        x = point.x - round timelinesDom.element.x
-        ( begin, end ) = toModelSpace model x size.width
-        timespan = Timespan tsId "New Timespan" begin end 0 0
-      in
-      { model
-        | timelines = updateTimeline model tlId tsId
-        , timespans = model.timespans |> Dict.insert tsId timespan
-        , selection = TimespanSelection tsId
-        , nextId = model.nextId + 1
-      }
-      |> startEditing (TimespanEdit tsId)
-    Err (Dom.NotFound e) ->
-      logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") ( model, Cmd.none )
+addTimespan : Model -> Id -> Point -> Size -> Dom.Viewport -> ( Model, Cmd Msg )
+addTimespan model tlId point size viewport =
+  let
+    tsId = model.nextId
+    x = point.x + round viewport.viewport.x - 170 -- 170 = timeline header width + app padding
+    ( begin, end ) = toModelSpace model x size.width
+    timespan = Timespan tsId "New Timespan" begin end 0 0
+  in
+  { model
+    | timelines = updateTimeline model tlId tsId
+    , timespans = model.timespans |> Dict.insert tsId timespan
+    , selection = TimespanSelection tsId
+    , nextId = model.nextId + 1
+  }
+  |> startEditing (TimespanEdit tsId)
 
 
 startEditing : EditState -> Model -> ( Model, Cmd Msg )
@@ -157,11 +153,7 @@ focus target =
     (\result ->
       case result of
         Ok () -> NoOp
-        Err e ->
-          let
-            _ = logError "focus" ("\"" ++ toString e ++ "\"")
-          in
-            NoOp
+        Err e -> logError "focus" ("\"" ++ toString e ++ "\"") NoOp
     )
 
 
@@ -221,14 +213,21 @@ performDrag model p =
 
 mouseUp : Model -> ( Model, Cmd Msg )
 mouseUp model =
-  ( { model | dragState = NoDrag }
-  , case model.dragState of
-      NoDrag -> logError "mouseUp" "Received MouseUp when dragState is NoDrag" Cmd.none
-      Engaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
-      DragTimespan _ _ _ -> encode model |> store
-      DrawRect tlId point size ->
-        Task.attempt (AddTimespan tlId point size) (Dom.getElement "tl-timelines")
-  )
+  let
+    cmd =
+      case model.dragState of
+        NoDrag -> logError "mouseUp" "Received MouseUp when dragState is NoDrag" Cmd.none
+        Engaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
+        DragTimespan _ _ _ -> encode model |> store
+        DrawRect tlId point size -> Dom.getViewportOf "tl-scrollcontainer"
+          |> Task.attempt
+            (\result ->
+              case result of
+                Ok viewport -> AddTimespan tlId point size viewport
+                Err (Dom.NotFound e) -> logError "mouseUp" ("Dom.NotFound \"" ++ e ++ "\"") NoOp
+            )
+  in
+  ( { model | dragState = NoDrag }, cmd )
 
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
@@ -488,7 +487,7 @@ view model =
             []
             [ viewTimeScale model
             , div
-                [ id "tl-timelines" ]
+                []
                 ( Dict.values model.timelines |>
                     List.map (\timeline -> viewTimeline model timeline)
                 )

@@ -124,7 +124,7 @@ type alias ZoomLevel =
 
 type Msg
   = AddTimeline
-  | AddTimespan Id Point Size (Result Dom.Error Dom.Element) -- 1st param is timeline id
+  | AddTimespan Id Point Size Dom.Viewport -- 1st param is timeline id
   | Select SelectionState
   | EditStart EditState
   | Edit String
