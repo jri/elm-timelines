@@ -28,7 +28,7 @@ type alias Model =
   }
 
 
-type alias Timelines = Dict Int Timeline
+type alias Timelines = Dict Id Timeline
 
 
 type alias Timeline =
@@ -39,7 +39,7 @@ type alias Timeline =
   }
 
 
-type alias Timespans = Dict Int Timespan
+type alias Timespans = Dict Id Timespan
 
 
 type alias Timespan =
@@ -52,7 +52,7 @@ type alias Timespan =
   }
 
 
-type alias TitleDict a = Dict Int { a | title : String }
+type alias TitleDict a = Dict Id { a | title : String }
 
 
 type DragState
@@ -250,14 +250,14 @@ decoder =
     |> D.andThen initBufferDecoder
 
 
-strToIntDictDecoder : Dict String v -> D.Decoder (Dict Int v)
+strToIntDictDecoder : Dict String v -> D.Decoder (Dict Id v)
 strToIntDictDecoder strDict =
   case strToIntDict strDict of
     Just dict -> D.succeed dict
     Nothing -> D.fail "Transformation Dict String -> Int failed"
 
 
-strToIntDict : Dict String v -> Maybe (Dict Int v)
+strToIntDict : Dict String v -> Maybe (Dict Id v)
 strToIntDict strDict =
   strDict |> Dict.foldl
     (\k v b ->

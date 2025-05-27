@@ -69,30 +69,35 @@ update msg model =
     AddTimespan tlId point size result ->
       addTimespan model tlId point size result |> updateAndStore
     Select target -> ( { model | selection = target }, Cmd.none )
-    EditStart target -> startEditing model target
-    Edit title -> updateTitle model title |> updateAndStore
+    EditStart target -> startEditing target model
+    Edit title -> ( updateTitle model title, Cmd.none ) |> updateAndStore
     EditEnd -> ( { model | editState = NoEdit }, Cmd.none )
     MouseDown -> ( reset model, Cmd.none )
     MouseDownItem p class id -> ( mouseDownOnItem model p class id, Cmd.none )
     MouseMove p -> ( mouseMove model p, Cmd.none )
     MouseUp -> mouseUp model
-    Delete -> delete model |> updateAndStore
+    Delete -> ( delete model, Cmd.none ) |> updateAndStore
     -- Zooming
     Zoom op -> zoom model op
     -- Settings dialog
     OpenSettings -> ( { model | isSettingsOpen = True }, Cmd.none )
     EditSetting field value -> ( updateSetting model field value, Cmd.none )
-    CloseSettings -> closeSettings model |> updateAndStore
+    CloseSettings -> ( closeSettings model, Cmd.none ) |> updateAndStore
     --
     NoOp -> ( model, Cmd.none )
 
 
-updateAndStore : Model -> ( Model, Cmd Msg )
-updateAndStore model =
-  ( model, encode model |> store )
+updateAndStore : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+updateAndStore ( model, cmd ) =
+  ( model
+  , Cmd.batch
+      [ cmd
+      , encode model |> store
+      ]
+  )
 
 
-addTimeline : Model -> Model
+addTimeline : Model -> ( Model, Cmd Msg )
 addTimeline model =
   let
     id = model.nextId
@@ -101,15 +106,15 @@ addTimeline model =
       Just color_ -> color_
       Nothing -> logError "addTimeline" "can't compute timeline color" 0
   in
-    { model
-      | timelines = model.timelines |> Dict.insert id
-        ( Timeline id "New Timeline" color [] )
-      , editState = TimelineEdit id
-      , nextId = id + 1
-    }
+  { model
+    | timelines = model.timelines |> Dict.insert id
+      ( Timeline id "New Timeline" color [] )
+    , nextId = id + 1
+  }
+  |> startEditing (TimelineEdit id)
 
 
-addTimespan : Model -> Id -> Point -> Size -> Result Dom.Error Dom.Element -> Model
+addTimespan : Model -> Id -> Point -> Size -> Result Dom.Error Dom.Element -> ( Model, Cmd Msg )
 addTimespan model tlId point size result =
   case result of
     Ok timelinesDom ->
@@ -123,36 +128,41 @@ addTimespan model tlId point size result =
         | timelines = updateTimeline model tlId tsId
         , timespans = model.timespans |> Dict.insert tsId timespan
         , selection = TimespanSelection tsId
-        , editState = TimespanEdit tsId
         , nextId = model.nextId + 1
       }
-    Err (Dom.NotFound e) -> logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") model
+      |> startEditing (TimespanEdit tsId)
+    Err (Dom.NotFound e) ->
+      logError "addTimespan" ("Dom.NotFound \"" ++ e ++ "\"") ( model, Cmd.none )
 
 
-startEditing : Model -> EditState -> ( Model, Cmd Msg )
-startEditing model target =
+startEditing : EditState -> Model -> ( Model, Cmd Msg )
+startEditing target model =
+  ( { model | editState = target }
+  , focus target
+  )
+
+
+focus : EditState -> Cmd Msg
+focus target =
   let
     nodeId =
       case target of
         TimelineEdit id -> "tl-input-" ++ String.fromInt id
         TimespanEdit id -> "tl-input-" ++ String.fromInt id
         TitleEdit -> "tl-title-input"
-        NoEdit -> logError "startEditing" "called with target NoEdit" ""
+        NoEdit -> logError "focus" "called with target NoEdit" ""
     -- _ = log "nodeId" nodeId
   in
-  (
-    { model | editState = target }
-  , Dom.focus nodeId |> Task.attempt
-      (\result ->
-        case result of
-          Ok () -> NoOp
-          Err e ->
-            let
-              _ = logError "startEditing" ("\"" ++ toString e ++ "\"")
-            in
-              NoOp
-      )
-  )
+  Dom.focus nodeId |> Task.attempt
+    (\result ->
+      case result of
+        Ok () -> NoOp
+        Err e ->
+          let
+            _ = logError "focus" ("\"" ++ toString e ++ "\"")
+          in
+            NoOp
+    )
 
 
 mouseDownOnItem : Model -> Point -> Class -> Id -> Model
