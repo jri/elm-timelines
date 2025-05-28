@@ -18,22 +18,21 @@ toString val = ""
 -- CONFIG
 
 
-conf =
-  { primaryFontSize = "16px"
-  , secondaryFontSize = "14px"
-  , timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
-                               -- green, red, blue, orange, purple, yellow
-  , selectionColor = "#007AFF" -- Firefox focus color
-  , zoomLevels = Array.fromList
-      [ ZoomLevel 512  1    -- 0 max in
-      , ZoomLevel 256  1    -- 1
-      , ZoomLevel 128  1    -- 2
-      , ZoomLevel  64  1    -- 3 default
-      , ZoomLevel  32  2    -- 4
-      , ZoomLevel  16  5    -- 5
-      , ZoomLevel   8 10    -- 6 max out
-      ]
-  }
+primaryFontSize = "16px"
+secondaryFontSize = "14px"
+timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
+                           -- green, red, blue, orange, purple, yellow
+selectionColor = "#007AFF" -- Firefox focus color
+zoomLevels = Array.fromList
+  [ ZoomLevel 512  1    -- 0 max in
+  , ZoomLevel 256  1    -- 1
+  , ZoomLevel 128  1    -- 2
+  , ZoomLevel  64  1    -- 3 default
+  , ZoomLevel  32  2    -- 4
+  , ZoomLevel  16  5    -- 5
+  , ZoomLevel   8 10    -- 6 max out
+  ]
+widthThreshold = 5 -- min width for AddTimespan
 
 
 
@@ -62,7 +61,7 @@ appStyle model =
 
 defaultTextStyle : List (Attribute Msg)
 defaultTextStyle =
-  [ style "font-size" conf.primaryFontSize
+  [ style "font-size" primaryFontSize
   , style "font-weight" "normal"
   ]
 
@@ -76,7 +75,7 @@ titleTextStyle =
 
 timelineHeaderTextStyle : List (Attribute Msg)
 timelineHeaderTextStyle =
-  [ style "font-size" conf.secondaryFontSize
+  [ style "font-size" secondaryFontSize
   , style "font-weight" "bold"
   ]
 
@@ -124,7 +123,7 @@ timeScaleStyle =
   [ style "position" "sticky"
   , style "top" "0"
   , style "z-index" "1"
-  , style "font-size" conf.secondaryFontSize
+  , style "font-size" secondaryFontSize
   , style "margin-bottom" "1px"
   , style "background-color" "white"
   ]
@@ -188,7 +187,7 @@ resizerStyle pos =
   , style "width" "12px"
   , style "height" "12px"
   , style "border-radius" "6px"
-  , style "background-color" conf.selectionColor
+  , style "background-color" selectionColor
   , style "cursor" "col-resize"
   , style "z-index" "1" -- keeps cursor when hovering other timespan
   ]
@@ -210,7 +209,7 @@ sliderStyle model timespan pos =
   , style "width" "12px"
   , style "height" "12px"
   , style "border-radius" "6px"
-  , style "background-color" conf.selectionColor
+  , style "background-color" selectionColor
   , style "cursor" "vertical-text"
   , style "z-index" "1"
   ]
@@ -221,7 +220,7 @@ selectionBorderStyle model id =
   let
     color = "2px solid " ++
       if isSelected model id then
-        conf.selectionColor
+        selectionColor
       else
         "transparent"      
   in
@@ -238,7 +237,7 @@ toolbarStyle =
 
 toolbarButtonStyle : List (Attribute Msg)
 toolbarButtonStyle =
-  [ style "font-size" conf.secondaryFontSize ]
+  [ style "font-size" secondaryFontSize ]
 
 
 spacerStyle : List (Attribute Msg)
@@ -264,7 +263,7 @@ settingsStyle =
   , style "bottom" "50px"
   , style "right" "20px"
   , style "padding" "15px"
-  , style "font-size" conf.secondaryFontSize
+  , style "font-size" secondaryFontSize
   , style "background-color" "white"
   , style "box-shadow" "0 0 4px lightgray"
   ]
@@ -334,14 +333,14 @@ toModelValue model x =
 
 pixelPerYear : Model -> Int
 pixelPerYear model =
-  case Array.get model.zoom conf.zoomLevels of
+  case Array.get model.zoom zoomLevels of
     Just level -> level.pixelPerYear
     Nothing -> logError "pixelPerYear" (String.fromInt model.zoom ++ " is an invalid zoom") 1
 
 
 yearStep : Model -> Int
 yearStep model =
-  case Array.get model.zoom conf.zoomLevels of
+  case Array.get model.zoom zoomLevels of
     Just level -> level.yearStep
     Nothing -> logError "yearStep" (String.fromInt model.zoom ++ " is an invalid zoom") 1
 

@@ -101,8 +101,8 @@ addTimeline : Model -> ( Model, Cmd Msg )
 addTimeline model =
   let
     id = model.nextId
-    colorIndex = modBy (Array.length conf.timelineColors) (Dict.size model.timelines)
-    color = case conf.timelineColors |> Array.get colorIndex of
+    colorIndex = modBy (Array.length timelineColors) (Dict.size model.timelines)
+    color = case timelineColors |> Array.get colorIndex of
       Just color_ -> color_
       Nothing -> logError "addTimeline" "can't compute timeline color" 0
   in
@@ -219,13 +219,18 @@ mouseUp model =
         NoDrag -> logError "mouseUp" "Received MouseUp when dragState is NoDrag" Cmd.none
         Engaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
         DragTimespan _ _ _ -> encode model |> store
-        DrawRect tlId point size -> Dom.getViewportOf "tl-scrollcontainer"
-          |> Task.attempt
-            (\result ->
-              case result of
-                Ok viewport -> AddTimespan tlId point size viewport
-                Err e -> logError "mouseUp" (toString e) NoOp
-            )
+        DrawRect tlId point size ->
+          if size.width >= widthThreshold then
+            Dom.getViewportOf "tl-scrollcontainer" |> Task.attempt
+              (\result ->
+                case result of
+                  Ok viewport -> AddTimespan tlId point size viewport
+                  Err e -> logError "mouseUp" (toString e) NoOp
+              )
+          else
+            log ("Hint: too small for creating timespan (" ++ String.fromInt size.width
+              ++ "px < " ++ String.fromInt widthThreshold ++ ")")
+              Cmd.none
   in
   ( { model | dragState = NoDrag }, cmd )
 
@@ -637,7 +642,7 @@ viewToolbar model =
         _ -> False
     settingsDisabled = model.isSettingsOpen
     zoomInDisabled = model.zoom == 0
-    zoomOutDisabled = model.zoom == Array.length conf.zoomLevels - 1
+    zoomOutDisabled = model.zoom == Array.length zoomLevels - 1
   in
   div
     toolbarStyle
