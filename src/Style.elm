@@ -4,8 +4,8 @@ import Model exposing (..)
 import Html exposing (Attribute)
 import Html.Attributes exposing (style)
 import Array
-import Debug exposing (log)
-{--
+--import Debug exposing (log)
+{--}
 log : String -> a -> a
 log text val = val
 

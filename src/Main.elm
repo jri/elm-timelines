@@ -16,7 +16,7 @@ import Array
 import Json.Decode as D
 import Json.Encode as E
 import Task exposing (Task)
-import Debug exposing (log, toString)
+--import Debug exposing (log, toString)
 
 
 
@@ -147,7 +147,6 @@ focus target =
         TimespanEdit id -> "tl-input-" ++ String.fromInt id
         TitleEdit -> "tl-title-input"
         NoEdit -> logError "focus" "called with target NoEdit" ""
-    -- _ = log "nodeId" nodeId
   in
   Dom.focus nodeId |> Task.attempt
     (\result ->
