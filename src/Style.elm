@@ -5,10 +5,13 @@ import Html exposing (Attribute)
 import Html.Attributes exposing (style)
 import Array
 import Debug exposing (log)
-{-
+{--
 log : String -> a -> a
 log text val = val
--}
+
+toString : a -> String
+toString val = ""
+--}
 
 
 

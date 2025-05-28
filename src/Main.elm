@@ -153,7 +153,7 @@ focus target =
     (\result ->
       case result of
         Ok () -> NoOp
-        Err e -> logError "focus" ("\"" ++ toString e ++ "\"") NoOp
+        Err e -> logError "focus" (toString e) NoOp
     )
 
 
@@ -224,7 +224,7 @@ mouseUp model =
             (\result ->
               case result of
                 Ok viewport -> AddTimespan tlId point size viewport
-                Err (Dom.NotFound e) -> logError "mouseUp" ("Dom.NotFound \"" ++ e ++ "\"") NoOp
+                Err e -> logError "mouseUp" (toString e) NoOp
             )
   in
   ( { model | dragState = NoDrag }, cmd )
