@@ -55,6 +55,7 @@ appStyle model =
   , style "padding" "20px"
   , style "box-sizing" "border-box"
   , style "user-select" userSelect
+  , style "-webkit-user-select" userSelect -- Safari still needs vendor prefix
   ]
   ++ defaultTextStyle
 
@@ -360,7 +361,8 @@ hsl hue lightness =
 
 hsla : Int -> String -> Float -> String
 hsla hue lightness alpha =
-  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ", " ++ String.fromFloat alpha ++ ")"
+  "hsl(" ++ String.fromInt hue ++ ", 100%, " ++ lightness ++ ", " ++ String.fromFloat alpha
+    ++ ")"
 
 
 
