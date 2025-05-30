@@ -10,7 +10,7 @@ Despite Elm Timelines models and visualizes time it is not a calendar applicatio
 
 To use Elm Timelines just click the link below. You don't need an account. You can just start with entering data. When you revisit that link later on, your data is still there. The data you enter is stored locally *in your browser* (using `localStorage`). Your data never leaves your computer. No one else can access it.
 
-[elm-timelines.html](elm-timelines.html)
+[elm-timelines.html](https://jri.github.io/elm-timelines/elm-timelines.html)
 
 > Hint: If you use Elm Timelines in a **Private Browser Window** data you enter will *not* be available later on. If you want store your data permanently (in your browser) don't use Elm Timelines in a private browser window.
 
