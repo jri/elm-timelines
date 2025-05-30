@@ -15,4 +15,4 @@ echo "Minified size:$(cat $min | wc -c) bytes ($min)"
 
 ./insert-script.js
 
-echo "Standalone:   $(cat $html | wc -c) bytes ($html) (gzipped: $(cat $html | gzip -c | wc -c) bytes)\n"
+echo "Standalone:   $(cat $html | wc -c) bytes ($html) (gzipped:$(cat $html | gzip -c | wc -c) bytes)\n"
