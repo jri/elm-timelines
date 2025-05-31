@@ -2,7 +2,7 @@
 
 Elm Timelines is a user interface for the creation of timelines, written in [Elm](https://elm-lang.org). You can use it e.g. as an aid for remembering your life. The special trait of Elm Timelines is that it deals with uncertainty. You're not supposed to enter dates but draw timespans within a timescale. If you're not (yet) certain about a timespan's begin or end you can add a range of uncertainty. Elm Timelines visualizes this as "fade-in" resp. "fade-out".
 
-![Elm Timelines](doc/elm-timelines.png)
+![Elm Timelines UI](doc/elm-timelines.png)
 
 Despite Elm Timelines models and visualizes time it is not a calendar application. Instead Elm Timelines provides you a canvas for your mind e.g. for your personal memory process. By visualizing different aspects of your life e.g. living places, partners, projects, the screen may inspire you with new questions and jog your memory. However Elm Timelines does not force you into any topic and you can go to the future as well.
 
@@ -26,4 +26,32 @@ The situations described here in the hints are a consequence of how [localStorag
 
 ## How to use
 
-TBD
+The Elm Timelines UI consists of a global *time scale* and several thematic *timelines*. A timeline contains several *timespans*. Each timespan has a begin and an end plus respective *uncertainty ranges*. Timespans can overlap. There is also a *page title*.
+
+To create a timespan point the mouse to a timeline and draw a rectangle.
+
+![Creating a timespan](doc/create-timespan.png)
+
+To move a timespan within a timeline drag it with the mouse. To adjust its begin and end drag its middle handlers. To adjust the begin's or end's uncertainty range drag the respective upper handlers.
+
+![The timespan handles](doc/timespan-handles.png)
+
+To globally zoom in and out the time scale use the `+` and `-` buttons.
+
+To edit a timeline's or a timespan's title click on it. The same applies to the page title.
+
+![Editing a title](doc/edit-title.png)
+
+The default time scale is set to 1960-2040. You can change the time scale any time by using the `Settings` button.
+
+![The settings dialog](doc/settings-dialog.png)
+
+To delete a timeline or a timespan select it and press the `Delete` button. To select a timeline click on its "header" area.
+
+![Selecting a timeline](doc/select-timeline.png)
+
+
+
+## Managing your data
+
+## Development
