@@ -266,6 +266,7 @@ settingsStyle =
   , style "font-size" secondaryFontSize
   , style "background-color" "white"
   , style "box-shadow" "0 0 4px lightgray"
+  , style "z-index" "1" -- place above scrollbars (Safari)
   ]
 
 
