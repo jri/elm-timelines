@@ -12,17 +12,11 @@ To use Elm Timelines just click the link below. You don't need an account. You c
 
 [elm-timelines.html](https://jri.github.io/elm-timelines/elm-timelines.html)
 
-> Hint: If you use Elm Timelines in a **Private Browser Window** data you enter will *not* be available later on. If you want store your data permanently (in your browser) don't use Elm Timelines in a private browser window.
+**Note:** If you use Elm Timelines in a **Private Browser Window** data you enter will *not* be available later on. If you want store your data permanently (in your browser) don't use Elm Timelines in a private browser window.
 
 ### Working offline
 
 Elm Timelines does not need a web server at all. You can download (by right-clicking) the HTML file above -- it's just 41 KB -- and open it locally in your browser. No internet required from then on. The same as above applies: the data you enter is stored locally in your browser. If you reopen that HTML file (on your hard drive) later on your data is still there.
-
-> Hints: You can start working online, entering data, and later on decide to use the offline approach. In this case a manual step is required: you need to transfer your data from one local-storage to another (within your browser). You can do this by the means of the browser console's "Storage" tab and copying a single JSON string. Open a GitHub ticket if you need help.
-
-> Also if you move the downloaded HTML file to another location on your hard drive you need to transfer your data like mentioned above.
-
-The situations described here in the hints are a consequence of how [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) works.
 
 ## How to use
 
@@ -50,11 +44,20 @@ To delete a timeline or a timespan select it and press the `Delete` button. To s
 
 ![Selecting a timeline](doc/select-timeline.png)
 
+## Managing the storage
 
+The Timelines data you enter is stored locally *in your browser* (utilizing [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API)).
+When you revisit the Timelines page later on, your data is still there. In some cases manual management is required though:
 
-## Managing your data
+- When you start Elm Timelines via github website (as mentioned in [Setup](#setup)), entering data, then change to the [Working offline](#working-offline) approach your data will not appear.
 
-TBD
+- When [Working offline](#working-offline), entering data, then move `elm-timelines.html` from your Download folder elsewhere, your data *might* not appear anymore.
+
+In these cases you need to transfer your data from one localStorage instance to another (within your browser). You can do this by the means of the browser console's "Storage" tab and copy/pasting the `elm-timelines` JSON string. Note: if the target page has no local storage yet do some editing (e.g. change the page title).
+
+![local-storage](doc/local-storage.png)
+
+**Note:** while Firefox associates an individual localStorage instance with every `file://` *path*, both, Safari and Google Chrome associate a single localStorage instance with the entire `file://` *URL-space*. For working with Elm Timelines offline/locally Firefox is recommended.
 
 ## Development
 
@@ -68,9 +71,9 @@ Point your browser to http://localhost:8000. The project's dashboard appears. Na
 
 Now, in your text editor, when you change any `src/` file, save, and reload the page your changes appear in the browser.
 
-## Debugging
+### Debugging
 
-In order to see debug output in the browser console and enable the `log` function for your own code, 1) in `Main.elm` uncomment line 19:
+By default the Elm Timelines repo is prepared for production build, that is the `Debug` module is not available. In order to see debug output in the browser console and enable the `log` function for your own code, 1) in `Main.elm` uncomment line 19:
 ```
 import Debug exposing (log, toString)
 ```
@@ -79,18 +82,19 @@ and, 2) in `Style.elm` uncomment line 7 and remove the `}` character in line 8:
 import Debug exposing (log)
 {--
 ```
+The latter comments the `log` and `toString` function mocks used for production.
 
-## Persistence
+### Persistence
 
-The mode described above provides you with a quick development cycle: just save and reload, no build step required. However it does not give you persistence. With every reload you start with an empty storage. Actually `localStorage` is not in effect, which is often fine while development.
+The development mode described above provides you with a quick turn-around cycle: just save and reload, no build step required. However it does not give you persistence. With every reload you start with an empty storage. Actually `localStorage` is not in effect, which is often fine while development.
 
 In order to develop with localStorage in effect, 1) navigate to `/index.html` (instead of `src/Main.elm`), and 2) after a source code change build the application manually:
 ```
 elm make src/Main.elm --output=main.js
 ```
-Reload the page and your changes appear in the browser.
+After building reload the page and your changes appear in the browser.
 
-## Build for production
+### Build for production
 
 The modes described above compile the Elm code in "DEV mode". Focus is on quick compilation time. For production in contrast focus is on small asset size. By applying various optimizations the size of the resulting JavaScript will shrink from ~200 KB down to ~40 KB.
 
@@ -103,3 +107,7 @@ To build Elm Timelines for production, 1) you need to revert the changes describ
 ./build-prod.sh
 ```
 Result is a standalone `elm-timelines.html`, the exact file mentioned above in [Setup](#setup) and [Working offline](#working-offline).
+
+---
+Jörg Richter  
+2025/06/01
