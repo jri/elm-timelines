@@ -54,4 +54,52 @@ To delete a timeline or a timespan select it and press the `Delete` button. To s
 
 ## Managing your data
 
+TBD
+
 ## Development
+
+You need [Elm](https://elm-lang.org). Clone the repo and launch Elm's built-in web server:
+```
+git clone https://github.com/jri/elm-timelines.git
+cd elm-timelines
+elm reactor
+```
+Point your browser to http://localhost:8000. The project's dashboard appears. Navigate to `src/Main.elm`. The Elm Timelines UI appears.
+
+Now, in your text editor, when you change any `src/` file, save, and reload the page your changes appear in the browser.
+
+## Debugging
+
+In order to see debug output in the browser console and enable the `log` function for your own code, 1) in `Main.elm` uncomment line 19:
+```
+import Debug exposing (log, toString)
+```
+and, 2) in `Style.elm` uncomment line 7 and remove the `}` character in line 8:
+```
+import Debug exposing (log)
+{--
+```
+
+## Persistence
+
+The mode described above provides you with a quick development cycle: just save and reload, no build step required. However it does not give you persistence. With every reload you start with an empty storage. Actually `localStorage` is not in effect, which is often fine while development.
+
+In order to develop with localStorage in effect, 1) navigate to `/index.html` (instead of `src/Main.elm`), and 2) after a source code change build the application manually:
+```
+elm make src/Main.elm --output=main.js
+```
+Reload the page and your changes appear in the browser.
+
+## Build for production
+
+The modes described above compile the Elm code in "DEV mode". Focus is on quick compilation time. For production in contrast focus is on small asset size. By applying various optimizations the size of the resulting JavaScript will shrink from ~200 KB down to ~40 KB.
+
+You'll need [Node.js](https://nodejs.org) and a globally installed `uglify-js` package so that `uglifyjs` is available in the terminal.
+```
+npm install uglify-js --global
+```
+To build Elm Timelines for production, 1) you need to revert the changes described in [Debugging](#debugging). Elm's `Debug` module can not be in use for a production build. 2) run the provided script:
+```
+./build-prod.sh
+```
+Result is a standalone `elm-timelines.html`, the exact file mentioned above in [Setup](#setup) and [Working offline](#working-offline).
