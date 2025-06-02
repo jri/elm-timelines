@@ -57,7 +57,7 @@ type alias TitleDict a = Dict Id { a | title : String }
 
 type DragState
   = NoDrag
-  | Engaged Point Class Id
+  | DragEngaged Point Class Id
   | DragTimespan Id TimespanMode Point -- timespan id, mode, last point
   | DrawRect Id Point Size -- timeline id, start point, width/height
 
@@ -125,7 +125,6 @@ type alias ZoomLevel =
 type Msg
   = AddTimeline
   | AddTimespan Id Point Size Dom.Viewport -- 1st param is timeline id
-  | Select SelectionState
   | EditStart EditState
   | Edit String
   | EditEnd

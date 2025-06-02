@@ -68,7 +68,6 @@ update msg model =
     AddTimeline -> addTimeline model |> updateAndStore
     AddTimespan tlId point size viewport ->
       addTimespan model tlId point size viewport |> updateAndStore
-    Select target -> ( { model | selection = target }, Cmd.none )
     EditStart target -> startEditing target model
     Edit title -> ( updateTitle model title, Cmd.none ) |> updateAndStore
     EditEnd -> ( { model | editState = NoEdit }, Cmd.none )
@@ -159,15 +158,22 @@ focus target =
 mouseDownOnItem : Model -> Point -> Class -> Id -> Model
 mouseDownOnItem model p class id =
   let
-    newModel = {- reset -} model -- TODO: when reset?
+    newModel =
+      case class of
+        "tl-timeline-header" -> select model (TimelineSelection id)
+        "tl-timespan" -> select model (TimespanSelection id)
+        _ -> model
   in
-  { newModel | dragState = Engaged p class id }
+  if class == "tl-timeline-header" then
+    newModel
+  else
+    { newModel | dragState = DragEngaged p class id }
 
 
 mouseMove : Model -> Point -> Model
 mouseMove model p =
   case model.dragState of
-    Engaged p_ class id ->
+    DragEngaged p_ class id ->
       let
         dragState = case class of
           "tl-timespan"      -> DragTimespan id MoveTimespan p_
@@ -204,8 +210,8 @@ performDrag model p =
         h = p.y - startPoint.y
       in
       { model | dragState = DrawRect id startPoint (Size w h) } -- update size
-    Engaged _ _ _ ->
-      logError "performDrag" "Received MouseMove message when dragState is Engaged" model
+    DragEngaged _ _ _ ->
+      logError "performDrag" "Received MouseMove message when dragState is DragEngaged" model
     NoDrag ->
       logError "performDrag" "Received MouseMove message when dragState is NoDrag" model
 
@@ -216,7 +222,7 @@ mouseUp model =
     cmd =
       case model.dragState of
         NoDrag -> logError "mouseUp" "Received MouseUp when dragState is NoDrag" Cmd.none
-        Engaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
+        DragEngaged _ _ _ -> log "Hint: MouseUp without dragging" Cmd.none
         DragTimespan _ _ _ -> encode model |> store
         DrawRect tlId point size ->
           if size.width >= widthThreshold then
@@ -228,10 +234,15 @@ mouseUp model =
               )
           else
             log ("Hint: too small for creating timespan (" ++ String.fromInt size.width
-              ++ "px < " ++ String.fromInt widthThreshold ++ ")")
+              ++ "px < " ++ String.fromInt widthThreshold ++ "px)")
               Cmd.none
   in
   ( { model | dragState = NoDrag }, cmd )
+
+
+select : Model -> SelectionState -> Model
+select model target =
+  { model | selection = target }
 
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
@@ -429,7 +440,7 @@ subscriptions model =
   Sub.batch
     [ case model.dragState of
         NoDrag -> mouseDownSub
-        Engaged _ _ _ -> dragSub
+        DragEngaged _ _ _ -> dragSub
         DragTimespan _ _ _ -> dragSub
         DrawRect _ _ _ -> dragSub
     , if model.selection /= NoSelection && model.editState == NoEdit then
@@ -550,14 +561,16 @@ timelineWidth model =
 viewTimelineHeader : Model -> Timeline -> Html Msg
 viewTimelineHeader model timeline =
   let
-    selTarget = TimelineSelection timeline.id
-    editTarget = TimelineEdit timeline.id
-    inputId = "tl-input-" ++ String.fromInt timeline.id
+    id = timeline.id
+    editTarget = TimelineEdit id
+    inputId = "tl-input-" ++ String.fromInt id
   in
   div
-    ( [ onClick (Select selTarget) ]
+    ( [ class "tl-timeline-header"
+      , attribute "data-id" (String.fromInt id)
+      ]
       ++ timelineHeaderStyle timeline
-      ++ selectionBorderStyle model timeline.id
+      ++ selectionBorderStyle model id
     )
     [ editable model editTarget inputId timelineHeaderTextStyle timeline.title ]
 
@@ -584,13 +597,11 @@ viewTimespan : Model -> Timespan -> Hue -> Html Msg
 viewTimespan model timespan hue =
   let
     id = timespan.id
-    selTarget = TimespanSelection id
     editTarget = TimespanEdit id
     inputId = "tl-input-" ++ String.fromInt id
   in
   div
-    ( [ onClick (Select selTarget)
-      , class "tl-timespan"
+    ( [ class "tl-timespan"
       , attribute "data-id" (String.fromInt id)
       ]
       ++ timespanStyle model timespan hue
