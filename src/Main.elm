@@ -160,8 +160,9 @@ mouseDownOnItem model p class id =
   let
     newModel =
       case class of
-        "tl-timeline-header" -> select model (TimelineSelection id)
         "tl-timespan" -> select model (TimespanSelection id)
+        "tl-timeline-header" -> select model (TimelineSelection id)
+        "tl-timeline" -> reset model
         _ -> model
   in
   if class == "tl-timeline-header" then
@@ -238,11 +239,6 @@ mouseUp model =
               Cmd.none
   in
   ( { model | dragState = NoDrag }, cmd )
-
-
-select : Model -> SelectionState -> Model
-select model target =
-  { model | selection = target }
 
 
 updateTimespan : Model -> Id -> Int -> TimespanMode -> Timespans
@@ -423,11 +419,19 @@ closeSettings model =
 
 --
 
+select : Model -> SelectionState -> Model
+select model target =
+  { model
+    | selection = target
+    , editState = NoEdit
+  }
+
+
 reset : Model -> Model
 reset model =
   { model
-  | selection = NoSelection
-  , editState = NoEdit
+    | selection = NoSelection
+    , editState = NoEdit
   }
 
 
