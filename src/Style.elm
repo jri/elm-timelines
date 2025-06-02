@@ -20,6 +20,7 @@ toString val = ""
 
 primaryFontSize = "16px"
 secondaryFontSize = "14px"
+footerFontSize = "12px"
 timelineColors = Array.fromList [120, 0, 210, 36, 270, 58]
                            -- green, red, blue, orange, purple, yellow
 selectionColor = "#007AFF" -- Firefox focus color
@@ -42,10 +43,7 @@ widthThreshold = 5 -- min width for AddTimespan
 appStyle : Model -> List (Attribute Msg)
 appStyle model =
   let
-    userSelect =
-      case model.dragState of
-        NoDrag -> "auto"
-        _ -> "none"
+    userSelect = if model.dragState == NoDrag then "auto" else "none"
   in
   [ style "font-family" "sans-serif"
   , style "display" "flex"
@@ -230,6 +228,7 @@ selectionBorderStyle model id =
 toolbarStyle : List (Attribute Msg)
 toolbarStyle =
   [ style "display" "flex"
+  , style "align-items" "baseline"
   , style "column-gap" "26px"
   , style "margin-top" "26px"
   ]
@@ -240,9 +239,18 @@ toolbarButtonStyle =
   [ style "font-size" secondaryFontSize ]
 
 
-spacerStyle : List (Attribute Msg)
-spacerStyle =
-  [ style "flex" "auto" ]
+footerStyle : List (Attribute Msg)
+footerStyle =
+  [ style "flex" "auto"
+  , style "font-size" footerFontSize
+  , style "text-align" "center"
+  , style "color" "lightgray"
+  ]
+
+
+linkStyle : List (Attribute Msg)
+linkStyle =
+  [ style "color" "lightgray" ]
 
 
 rectangleStyle : Point -> Size -> List (Attribute Msg)

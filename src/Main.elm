@@ -6,8 +6,8 @@ import Style exposing (..)
 import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
-import Html exposing (Html, Attribute, h1, div, span, text, button, input)
-import Html.Attributes exposing (class, id, style, attribute, value, disabled)
+import Html exposing (Html, Attribute, div, text, button, input, a)
+import Html.Attributes exposing (class, id, style, attribute, value, disabled, href)
 import Html.Events exposing (onClick, onInput, on, stopPropagationOn, keyCode)
 import Svg exposing (svg, line, text_) -- "text_" is an element, "text" is a node
 import Svg.Attributes exposing (viewBox, width, height, x, y, x1, y1, x2, y2, stroke, fill)
@@ -635,13 +635,10 @@ viewSlider model timespan pos =
 viewToolbar : Model -> Html Msg
 viewToolbar model =
   let
-    deleteDisabled =
-      case model.selection of
-        NoSelection -> True
-        _ -> False
-    settingsDisabled = model.isSettingsOpen
     zoomInDisabled = model.zoom == 0
     zoomOutDisabled = model.zoom == Array.length zoomLevels - 1
+    deleteDisabled = model.selection == NoSelection
+    settingsDisabled = model.isSettingsOpen
   in
   div
     toolbarStyle
@@ -672,7 +669,15 @@ viewToolbar model =
           ++ toolbarButtonStyle
         )
         [ text "Delete"]
-    , div spacerStyle []
+    , div
+        footerStyle
+        [ text "Elm Timelines 1.0-SNAPSHOT by "
+        , a
+            ( [ href "https://github.com/jri" ]
+              ++ linkStyle
+            )
+            [ text "Jörg Richter" ]
+        ]
     , button
         ( [ onClick OpenSettings
           --, stopPropagationOnMousedown -- TODO?
