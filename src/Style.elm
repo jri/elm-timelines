@@ -356,10 +356,8 @@ yearStep model =
 
 isSelected : Model -> Id -> Bool
 isSelected model id =
-  case model.selection of
-    TimelineSelection id_ -> id_ == id
-    TimespanSelection id_ -> id_ == id
-    NoSelection -> False
+  model.selection == TimelineSelection id ||
+  model.selection == TimespanSelection id
 
 
 hsl : Int -> String -> String

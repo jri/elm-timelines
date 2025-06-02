@@ -426,11 +426,17 @@ reset model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  case model.dragState of
-    NoDrag -> mouseDownSub
-    Engaged _ _ _ -> dragSub
-    DragTimespan _ _ _ -> dragSub
-    DrawRect _ _ _ -> dragSub
+  Sub.batch
+    [ case model.dragState of
+        NoDrag -> mouseDownSub
+        Engaged _ _ _ -> dragSub
+        DragTimespan _ _ _ -> dragSub
+        DrawRect _ _ _ -> dragSub
+    , if model.selection /= NoSelection && model.editState == NoEdit then
+        E.onKeyDown (keyDecoder 8 Delete)
+      else
+        Sub.none
+    ]
 
 
 mouseDownSub : Sub Msg
@@ -762,19 +768,28 @@ editable model target inputId textStyle title =
 
 onEnter : Msg -> Attribute Msg
 onEnter msg =
-  let
-    isEnter code =
-      if code == 13 then
-        D.succeed msg
-      else
-        D.fail "not ENTER"
-  in
-    on "keydown" (keyCode |> D.andThen isEnter)
+  on "keydown" (keyDecoder 13 msg)
 
 
 stopPropagationOnMousedown : Attribute Msg
 stopPropagationOnMousedown =
   stopPropagationOn "mousedown" <| D.succeed (NoOp, True)
+
+
+
+-- UTILS
+
+
+keyDecoder : Int -> Msg -> D.Decoder Msg
+keyDecoder key msg =
+  let
+    isKey code =
+      if code == key then
+        D.succeed msg
+      else
+        D.fail "not that key"
+  in
+    keyCode |> D.andThen isKey
 
 
 
