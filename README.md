@@ -1,10 +1,10 @@
 # Elm Timelines
 
-Elm Timelines is a user interface for the creation of timelines, written in [Elm](https://elm-lang.org). You can use it e.g. as an aid for remembering your life. The special trait of Elm Timelines is that it deals with uncertainty. You're not supposed to enter dates but draw timespans within a timescale. If you're not (yet) certain about a timespan's begin or end you can add a range of uncertainty. Elm Timelines visualizes this as "fade-in" resp. "fade-out".
+Elm Timelines is a user interface for the creation of timelines, written in [Elm](https://elm-lang.org). You can use it e.g. as an aid for remembering your life. The special trait of Elm Timelines is that it deals with uncertainty. You're not required to enter exact dates but draw timespans within a timescale. If you're not (yet) certain about a timespan's begin or end you can add an uncertainty range. Elm Timelines visualizes this as "fade-in" resp. "fade-out" then.
 
 ![Elm Timelines UI](doc/elm-timelines.png)
 
-Despite Elm Timelines models and visualizes time it is not a calendar application. Instead Elm Timelines provides you a canvas for your mind e.g. for your personal memory process. By visualizing different aspects of your life e.g. living places, partners, projects, the screen may inspire you with new questions and jog your memory. However Elm Timelines does not force you into any topic and you can go to the future as well.
+Despite Elm Timelines models and visualizes time it is not a calendar application. Instead Elm Timelines provides you a canvas for your mind e.g. for your personal memory process. By visualizing different aspects of your life at the same time e.g. living places, partners, projects, the screen may inspire you with new questions and jog your memory. However Elm Timelines does not force you into any topic and you can go to the future as well.
 
 ## Setup
 
@@ -16,7 +16,7 @@ To use Elm Timelines just click the link below. You don't need an account. You c
 
 ### Working offline
 
-Elm Timelines does not need a web server at all. You can download (by right-clicking) the HTML file above -- it's just 41 KB -- and open it locally in your browser. No internet required from then on. The same as above applies: the data you enter is stored locally in your browser. If you reopen that HTML file (on your hard drive) later on your data is still there.
+Elm Timelines is a server-less application, it does not need a web server. You can download (by right-clicking) the HTML file above and open it locally in your browser. The HTML is a 41 KB standalone file, all JavaScript and CSS is embedded. No internet required from then on. The same as above applies: the data you enter is stored locally in your browser. If you reopen that HTML file (from your hard drive) later on your data is still there.
 
 ## How to use
 
@@ -53,27 +53,27 @@ When you revisit the Timelines page later on, your data is still there. In some 
 
 - When [Working offline](#working-offline), entering data, then move `elm-timelines.html` from your Download folder elsewhere, your data *might* not appear anymore.
 
-In these cases you need to transfer your data from one localStorage instance to another (within your browser). You can do this by the means of the browser console's "Storage" tab and copy/pasting the `elm-timelines` JSON string. Note: if the target page has no local storage yet do some editing (e.g. change the page title).
+In these cases you might need to transfer your data from one localStorage instance to another (within your browser). You can do this by the means of the browser console's "Storage" tab and copy/pasting the `elm-timelines` JSON string. Note: if the target page has no local storage yet do some editing first (e.g. change the page title).
 
 ![local-storage](doc/local-storage.png)
 
-**Note:** while Firefox associates an individual localStorage instance with every `file://` *path*, both, Safari and Google Chrome associate a single localStorage instance with the entire `file://` *URL-space*. For working with Elm Timelines offline/locally Firefox is recommended.
+**Note:** while Firefox associates an individual localStorage instance with every `file://` *path*, both, Safari and Google Chrome associate a single localStorage instance with the entire `file://` *URL-space*.
 
 ## Development
 
-You need [Elm](https://elm-lang.org). Clone the repo and launch Elm's built-in web server:
+For developing Elm Timelines you need [Elm](https://elm-lang.org). Clone the repo and launch Elm's built-in web server:
 ```
 git clone https://github.com/jri/elm-timelines.git
 cd elm-timelines
 elm reactor
 ```
-Point your browser to http://localhost:8000. The project's dashboard appears. Navigate to `src/Main.elm`. The Elm Timelines UI appears.
+Point your browser to http://localhost:8000. The project dashboard appears. Navigate to `src/Main.elm`. The Elm Timelines UI appears.
 
-Now, in your text editor, when you change any `src/` file, save, and reload the page your changes appear in the browser.
+Now, in your text editor, when you change any `src/` file, save, and press reload in the browser your changes appear.
 
 ### Debugging
 
-By default the Elm Timelines repo is prepared for production build, that is the `Debug` module is not available. In order to see debug output in the browser console and enable the `log` function for your own code, 1) in `Main.elm` uncomment line 19:
+By default the Elm Timelines repo is prepared for production build, that is Elm's `Debug` module is not available. In order to see debug output in the browser console and enable the `log` function for your own code, 1) uncomment line 19 in `Main.elm`:
 ```
 import Debug exposing (log, toString)
 ```
@@ -82,13 +82,13 @@ and, 2) in `Style.elm` uncomment line 7 and remove the `}` character in line 8:
 import Debug exposing (log)
 {--
 ```
-The latter comments the `log` and `toString` function mocks used for production.
+The latter comments the `log` and `toString` function mocks as used for production.
 
 ### Persistence
 
-The development mode described above provides you with a quick turn-around cycle: just save and reload, no build step required. However it does not give you persistence. With every reload you start with an empty storage. Actually `localStorage` is not in effect, which is often fine while development.
+The development mode described above provides you with a quick turn-around cycle: just save and press reload, no build step required. However it does not give you persistence. With every reload you start with an empty storage. Actually `localStorage` is not in effect, which is often fine while development though.
 
-In order to develop with localStorage in effect, 1) navigate to `/index.html` (instead of `src/Main.elm`), and 2) after a source code change build the application manually:
+In order to develop with localStorage in effect, 1) in the project dashboard navigate to `/index.html` (instead of `src/Main.elm`), and 2) after a source code change build the application manually:
 ```
 elm make src/Main.elm --output=main.js
 ```
@@ -102,12 +102,12 @@ You'll need [Node.js](https://nodejs.org) and a globally installed `uglify-js` p
 ```
 npm install uglify-js --global
 ```
-To build Elm Timelines for production, 1) you need to revert the changes described in [Debugging](#debugging). Elm's `Debug` module can not be in use for a production build. 2) run the provided script:
+To build Elm Timelines for production, 1) you need to revert the changes described in [Debugging](#debugging). Elm's `Debug` module can not be used in a production build. 2) run the provided script:
 ```
 ./build-prod.sh
 ```
-Result is a standalone `elm-timelines.html`, the exact file mentioned above in [Setup](#setup) and [Working offline](#working-offline).
+Result is the standalone `elm-timelines.html`, the exact file mentioned above in [Setup](#setup) and [Working offline](#working-offline).
 
 ---
 Jörg Richter  
-2025/06/01
+2025/06/02
