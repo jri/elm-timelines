@@ -16,7 +16,7 @@ To use Elm Timelines just click the link below. You don't need an account. You c
 
 ### Working offline
 
-Elm Timelines is a server-less application, it does not need a web server. You can download (by right-clicking) the HTML file above and open it locally in your browser. The HTML is a 41 KB standalone file, all JavaScript and CSS is embedded. No internet required from then on. The same as above applies: the data you enter is stored locally in your browser. If you reopen that HTML file (from your hard drive) later on your data is still there.
+Elm Timelines is a server-less application, it does not need a web server. You can download (by right-clicking) the HTML file above and open it locally in your browser. The HTML is a 42 KB standalone file, all JavaScript and CSS is embedded. No internet required from then on. The same as above applies: the data you enter is stored locally in your browser. If you reopen that HTML file (from your hard drive) later on your data is still there.
 
 ## How to use
 
@@ -32,7 +32,7 @@ To move a timespan within a timeline drag it with the mouse. To adjust its begin
 
 To globally zoom in and out the time scale use the `+` and `-` buttons.
 
-To edit a timeline's or a timespan's title click on it. The same applies to the page title.
+To edit a timeline's or a timespan's title click on it. The same applies to the page title. To leave edit mode hit the `Enter` or `ESC` key (or click anywhere).
 
 ![Editing a title](doc/edit-title.png)
 
@@ -40,7 +40,7 @@ The default time scale is set to 1960-2040. You can change the time scale any ti
 
 ![The settings dialog](doc/settings-dialog.png)
 
-To delete a timeline or a timespan select it and press the `Delete` button. To select a timeline click on its "header" area.
+To delete a timeline or a timespan select it and press the `Delete` button or hit the `Backspace` key. To select a timeline click on its "header" area.
 
 ![Selecting a timeline](doc/select-timeline.png)
 

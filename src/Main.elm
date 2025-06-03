@@ -772,7 +772,7 @@ editable model target inputId textStyle title =
       ( [ id inputId
         , value title
         , onInput Edit
-        , onEnter EditEnd
+        , onEnterOrEsc EditEnd
         , stopPropagationOnMousedown
         ]
         ++ editStyle
@@ -781,9 +781,14 @@ editable model target inputId textStyle title =
       []
 
 
-onEnter : Msg -> Attribute Msg
-onEnter msg =
-  on "keydown" (keyDecoder 13 msg)
+onEnterOrEsc : Msg -> Attribute Msg
+onEnterOrEsc msg =
+  on "keydown"
+    ( D.oneOf
+        [ keyDecoder 13 msg
+        , keyDecoder 27 msg
+        ]
+    )
 
 
 stopPropagationOnMousedown : Attribute Msg
