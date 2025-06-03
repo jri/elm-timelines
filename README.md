@@ -110,4 +110,4 @@ Result is the standalone `elm-timelines.html`, the exact file mentioned above in
 
 ---
 Jörg Richter  
-2025/06/02
+2025/06/03

@@ -690,23 +690,27 @@ viewToolbar model =
           ++ toolbarButtonStyle
         )
         [ text "Delete"]
-    , div
-        footerStyle
-        [ text "Elm Timelines 1.0-SNAPSHOT by "
-        , a
-            ( [ href "https://github.com/jri" ]
-              ++ linkStyle
-            )
-            [ text "Jörg Richter" ]
-        ]
+    , viewFooter
     , button
         ( [ onClick OpenSettings
-          --, stopPropagationOnMousedown -- TODO?
           , disabled settingsDisabled
           ]
           ++ toolbarButtonStyle
         )
         [ text "Settings"]
+    ]
+
+
+viewFooter : Html Msg
+viewFooter =
+  div
+    footerStyle
+    [ text "Elm Timelines 1.0 by "
+    , a
+        ( [ href "https://github.com/jri" ]
+          ++ linkStyle
+        )
+        [ text "Jörg Richter" ]
     ]
 
 
